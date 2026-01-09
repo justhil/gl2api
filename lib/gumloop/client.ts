@@ -1,9 +1,11 @@
-import WebSocket from 'ws'
 import type { GumloopEvent, GumloopMessage, GumloopMessagePart } from './types'
 import type { FilePart } from './file'
 
 const WS_URL = 'wss://ws.gumloop.com/ws/gummies'
 const API_BASE = 'https://api.gumloop.com'
+
+// Use native WebSocket for Deno compatibility
+const WS = typeof globalThis.WebSocket !== 'undefined' ? globalThis.WebSocket : (await import('ws')).default
 
 export function generateChatId(len = 22): string {
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
@@ -122,9 +124,7 @@ export async function* sendChat(
     },
   }
 
-  const ws = new WebSocket(WS_URL, {
-    headers: { Origin: 'https://www.gumloop.com' },
-  })
+  const ws = new WS(WS_URL)
 
   type QueueItem = { type: 'event'; event: GumloopEvent } | { type: 'done' } | { type: 'error'; error: Error }
   const queue: QueueItem[] = []
@@ -138,31 +138,30 @@ export async function* sendChat(
     }
   }
 
-  ws.on('open', () => {
+  ws.onopen = () => {
     ws.send(JSON.stringify(payload))
-  })
+  }
 
-  ws.on('message', (data) => {
+  ws.onmessage = (event: MessageEvent) => {
     try {
-      const event = JSON.parse(data.toString()) as GumloopEvent
-      push({ type: 'event', event })
-      // opus4.5 sends two finish events: first with final=false, then final=true
-      // other models send one finish event without final field (undefined)
-      if (event.type === 'finish' && event.final !== false) {
+      const data = typeof event.data === 'string' ? event.data : event.data.toString()
+      const parsed = JSON.parse(data) as GumloopEvent
+      push({ type: 'event', event: parsed })
+      if (parsed.type === 'finish' && parsed.final !== false) {
         ws.close()
       }
     } catch {
       // ignore parse errors
     }
-  })
+  }
 
-  ws.on('error', (err) => {
-    push({ type: 'error', error: err })
-  })
+  ws.onerror = (err: Event) => {
+    push({ type: 'error', error: err instanceof Error ? err : new Error(String(err)) })
+  }
 
-  ws.on('close', () => {
+  ws.onclose = () => {
     push({ type: 'done' })
-  })
+  }
 
   while (true) {
     while (queue.length === 0) {
