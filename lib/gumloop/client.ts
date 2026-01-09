@@ -130,10 +130,17 @@ export async function* sendChat(
     headers: { Origin: 'https://www.gumloop.com' },
   })
 
-  const eventQueue: GumloopEvent[] = []
-  let resolveNext: ((value: IteratorResult<GumloopEvent>) => void) | null = null
-  let finished = false
-  let error: Error | null = null
+  type QueueItem = { type: 'event'; event: GumloopEvent } | { type: 'done' } | { type: 'error'; error: Error }
+  const queue: QueueItem[] = []
+  let resolve: (() => void) | null = null
+
+  const push = (item: QueueItem) => {
+    queue.push(item)
+    if (resolve) {
+      resolve()
+      resolve = null
+    }
+  }
 
   ws.on('open', () => {
     ws.send(JSON.stringify(payload))
@@ -142,14 +149,8 @@ export async function* sendChat(
   ws.on('message', (data) => {
     try {
       const event = JSON.parse(data.toString()) as GumloopEvent
-      if (resolveNext) {
-        resolveNext({ value: event, done: false })
-        resolveNext = null
-      } else {
-        eventQueue.push(event)
-      }
+      push({ type: 'event', event })
       if (event.type === 'finish') {
-        finished = true
         ws.close()
       }
     } catch {
@@ -158,35 +159,22 @@ export async function* sendChat(
   })
 
   ws.on('error', (err) => {
-    error = err
-    if (resolveNext) {
-      resolveNext({ value: undefined as unknown as GumloopEvent, done: true })
-      resolveNext = null
-    }
+    push({ type: 'error', error: err })
   })
 
   ws.on('close', () => {
-    finished = true
-    if (resolveNext) {
-      resolveNext({ value: undefined as unknown as GumloopEvent, done: true })
-      resolveNext = null
-    }
+    push({ type: 'done' })
   })
 
-  while (!finished || eventQueue.length > 0) {
-    if (error) throw error
-
-    if (eventQueue.length > 0) {
-      const event = eventQueue.shift()!
-      yield event
-      if (event.type === 'finish') break
-    } else if (!finished) {
-      const event = await new Promise<IteratorResult<GumloopEvent>>((resolve) => {
-        resolveNext = resolve
-      })
-      if (event.done) break
-      yield event.value
-      if (event.value.type === 'finish') break
+  while (true) {
+    while (queue.length === 0) {
+      await new Promise<void>((r) => { resolve = r })
     }
+
+    const item = queue.shift()!
+    if (item.type === 'error') throw item.error
+    if (item.type === 'done') break
+    yield item.event
+    if (item.event.type === 'finish') break
   }
 }
