@@ -259,8 +259,7 @@ async function processChat(
                 inText = false
               }
             } else if (ev.type === 'finish') {
-              // finish 事件只有非 Claude/Gemini 模型会发送
-              // 这里不做特殊处理，让循环自然结束后统一处理
+              // 所有模型都发送 finish 事件，循环会在 yield 后自然结束
             }
           }
 

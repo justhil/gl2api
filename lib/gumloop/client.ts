@@ -158,7 +158,7 @@ export async function* sendChat(
         pending.push(parsed)
       }
 
-      if (parsed.type === 'finish' || parsed.type === 'text-end') {
+      if (parsed.type === 'finish') {
         closed = true
         ws.close()
       }
@@ -194,7 +194,7 @@ export async function* sendChat(
       if (pending.length > 0) {
         const event = pending.shift()!
         yield event
-        if (event.type === 'finish' || event.type === 'text-end') {
+        if (event.type === 'finish') {
           return
         }
         continue
@@ -210,7 +210,7 @@ export async function* sendChat(
 
       if (event === null) return
       yield event
-      if (event.type === 'finish' || event.type === 'text-end') {
+      if (event.type === 'finish') {
         return
       }
     }
