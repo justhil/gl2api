@@ -4,7 +4,7 @@ import { verifyApiKey } from '@/lib/utils/api-key'
 import { mapModel } from '@/lib/utils/model-map'
 import { getEnabledAccount, getGummieIdForModel } from '@/lib/db/accounts'
 import { getToken } from '@/lib/cache/token'
-import { sendChat, updateGummieConfig } from '@/lib/gumloop/client'
+import { sendChat, updateGummieConfig, type Message } from '@/lib/gumloop/client'
 import { GumloopStreamHandler } from '@/lib/gumloop/handler'
 import {
   buildMessageStart,
@@ -22,7 +22,9 @@ import {
   convertMessagesWithTools,
   parseToolCalls,
   detectToolLoop,
+  type ConvertedMessage,
 } from '@/lib/gumloop/tools'
+import { uploadImage, createImagePart, type ImagePart } from '@/lib/gumloop/image'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -108,22 +110,53 @@ export async function POST(req: NextRequest) {
       })
     } catch {
       // Fallback to text-based tools
-      const messages = convertMessagesWithTools(
+      const convertedMessages = convertMessagesWithTools(
         data.messages.map((m) => ({ role: m.role, content: m.content })),
         data.tools,
         systemText
       )
+      const messages = await processImagesInMessages(convertedMessages, gummieId, userId, idToken)
       return processChat(gummieId, messages, model, data, hasTools, idToken)
     }
   }
 
-  const messages = convertMessagesSimple(data.messages.map((m) => ({ role: m.role, content: m.content })))
+  const convertedMessages = convertMessagesSimple(data.messages.map((m) => ({ role: m.role, content: m.content })))
+  const messages = await processImagesInMessages(convertedMessages, gummieId, userId, idToken)
   return processChat(gummieId, messages, model, data, hasTools, idToken)
+}
+
+async function processImagesInMessages(
+  convertedMessages: ConvertedMessage[],
+  chatId: string,
+  userId: string,
+  idToken: string
+): Promise<Message[]> {
+  const result: Message[] = []
+
+  for (const msg of convertedMessages) {
+    const message: Message = {
+      role: msg.role,
+      content: msg.content,
+    }
+
+    if (msg.images?.length) {
+      const imageParts: ImagePart[] = []
+      for (const img of msg.images) {
+        const uploaded = await uploadImage(img.base64Data, img.mediaType, chatId, userId, idToken)
+        imageParts.push(createImagePart(uploaded))
+      }
+      message.images = imageParts
+    }
+
+    result.push(message)
+  }
+
+  return result
 }
 
 async function processChat(
   gummieId: string,
-  messages: Array<{ role: string; content: string }>,
+  messages: Message[],
   model: string,
   data: { stream: boolean; thinking?: Record<string, unknown> },
   hasTools: boolean,

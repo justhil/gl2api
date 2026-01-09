@@ -4,9 +4,10 @@ import { verifyApiKey } from '@/lib/utils/api-key'
 import { mapModel } from '@/lib/utils/model-map'
 import { getEnabledAccount, getGummieIdForModel } from '@/lib/db/accounts'
 import { getToken } from '@/lib/cache/token'
-import { sendChat } from '@/lib/gumloop/client'
+import { sendChat, type Message } from '@/lib/gumloop/client'
 import { GumloopStreamHandler } from '@/lib/gumloop/handler'
 import { buildOpenAIChunk, buildOpenAIDone } from '@/lib/gumloop/parser'
+import { extractOpenAIImage, uploadImage, createImagePart, type ImagePart } from '@/lib/gumloop/image'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -20,17 +21,67 @@ function generateId(): string {
   return result
 }
 
-function convertMessages(messages: Array<{ role: string; content?: unknown }>): Array<{ role: string; content: string }> {
+interface ExtractedMessage {
+  role: string
+  content: string
+  images?: Array<{ base64Data: string; mediaType: string }>
+}
+
+function convertMessages(messages: Array<{ role: string; content?: unknown }>): ExtractedMessage[] {
   return messages.map((msg) => {
-    let content = msg.content
+    const content = msg.content
+    const images: Array<{ base64Data: string; mediaType: string }> = []
+
     if (Array.isArray(content)) {
-      content = content
-        .filter((b): b is { type: string; text?: string } => typeof b === 'object' && b?.type === 'text')
-        .map((b) => b.text || '')
-        .join('\n')
+      const textParts: string[] = []
+      for (const block of content) {
+        if (typeof block === 'object' && block?.type === 'text' && block.text) {
+          textParts.push(block.text)
+        } else {
+          const img = extractOpenAIImage(block)
+          if (img) {
+            images.push(img)
+          }
+        }
+      }
+      return {
+        role: msg.role,
+        content: textParts.join('\n'),
+        images: images.length > 0 ? images : undefined,
+      }
     }
+
     return { role: msg.role, content: String(content || '') }
   })
+}
+
+async function processImagesInMessages(
+  extractedMessages: ExtractedMessage[],
+  chatId: string,
+  userId: string,
+  idToken: string
+): Promise<Message[]> {
+  const result: Message[] = []
+
+  for (const msg of extractedMessages) {
+    const message: Message = {
+      role: msg.role,
+      content: msg.content,
+    }
+
+    if (msg.images?.length) {
+      const imageParts: ImagePart[] = []
+      for (const img of msg.images) {
+        const uploaded = await uploadImage(img.base64Data, img.mediaType, chatId, userId, idToken)
+        imageParts.push(createImagePart(uploaded))
+      }
+      message.images = imageParts
+    }
+
+    result.push(message)
+  }
+
+  return result
 }
 
 export async function POST(req: NextRequest) {
@@ -60,14 +111,17 @@ export async function POST(req: NextRequest) {
   }
 
   let idToken: string
+  let userId: string
   try {
     const tokenData = await getToken(account.id, account.refreshToken)
     idToken = tokenData.idToken
+    userId = tokenData.userId
   } catch (err) {
     return NextResponse.json({ error: 'Authentication failed', details: String(err) }, { status: 500 })
   }
 
-  const messages = convertMessages(data.messages)
+  const extractedMessages = convertMessages(data.messages)
+  const messages = await processImagesInMessages(extractedMessages, gummieId, userId, idToken)
   const streamId = generateId()
   const created = Math.floor(Date.now() / 1000)
 

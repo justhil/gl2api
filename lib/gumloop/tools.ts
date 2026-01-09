@@ -1,4 +1,5 @@
 import type { ClaudeTool } from './types'
+import { extractImage, type ExtractedImage } from './image'
 
 // ============ Tool Definition Conversion ============
 
@@ -110,6 +111,10 @@ interface MessageContent {
   id?: string
   name?: string
   input?: Record<string, unknown>
+  // 图片相关字段
+  source?: { type: string; media_type?: string; data?: string; url?: string }
+  image_url?: { url: string; detail?: string }
+  inline_data?: { mime_type: string; data: string }
 }
 
 interface Message {
@@ -120,13 +125,15 @@ interface Message {
 export function convertMessageContent(content: string | MessageContent[] | Record<string, unknown>[]): {
   textContent: string
   toolBlocks: Array<ToolUseBlock | ToolResultBlock>
+  images: ExtractedImage[]
 } {
   if (typeof content === 'string') {
-    return { textContent: content, toolBlocks: [] }
+    return { textContent: content, toolBlocks: [], images: [] }
   }
 
   const textParts: string[] = []
   const toolBlocks: Array<ToolUseBlock | ToolResultBlock> = []
+  const images: ExtractedImage[] = []
 
   for (const block of content) {
     const b = block as MessageContent
@@ -146,10 +153,16 @@ export function convertMessageContent(content: string | MessageContent[] | Recor
         content: b.content || '',
         is_error: b.is_error,
       })
+    } else {
+      // 尝试提取图片
+      const img = extractImage(block)
+      if (img) {
+        images.push(img)
+      }
     }
   }
 
-  return { textContent: textParts.join('\n'), toolBlocks }
+  return { textContent: textParts.join('\n'), toolBlocks, images }
 }
 
 function mergeConsecutiveMessages(messages: Array<{ role: string; content: string }>): Array<{ role: string; content: string }> {
@@ -178,12 +191,18 @@ function mergeConsecutiveMessages(messages: Array<{ role: string; content: strin
   return result
 }
 
-export function convertMessagesSimple(messages: Message[]): Array<{ role: string; content: string }> {
-  const result: Array<{ role: string; content: string }> = []
+export interface ConvertedMessage {
+  role: string
+  content: string
+  images?: ExtractedImage[]
+}
+
+export function convertMessagesSimple(messages: Message[]): ConvertedMessage[] {
+  const result: ConvertedMessage[] = []
   const seenToolResultIds = new Set<string>()
 
   for (const msg of messages) {
-    const { textContent, toolBlocks } = convertMessageContent(msg.content)
+    const { textContent, toolBlocks, images } = convertMessageContent(msg.content)
 
     if (msg.role === 'assistant') {
       const parts: string[] = []
@@ -207,21 +226,25 @@ export function convertMessagesSimple(messages: Message[]): Array<{ role: string
           parts.push(toolResultToText(block))
         }
       }
-      if (parts.length) {
-        result.push({ role: 'user', content: parts.join('\n') })
+      if (parts.length || images.length) {
+        result.push({
+          role: 'user',
+          content: parts.join('\n'),
+          images: images.length > 0 ? images : undefined,
+        })
       }
     }
   }
 
-  return mergeConsecutiveMessages(result)
+  return mergeConsecutiveMessagesWithImages(result)
 }
 
 export function convertMessagesWithTools(
   messages: Message[],
   tools?: ClaudeTool[],
   system?: string
-): Array<{ role: string; content: string }> {
-  const result: Array<{ role: string; content: string }> = []
+): ConvertedMessage[] {
+  const result: ConvertedMessage[] = []
   const seenToolResultIds = new Set<string>()
 
   const systemParts: string[] = []
@@ -233,7 +256,7 @@ export function convertMessagesWithTools(
   }
 
   for (const msg of messages) {
-    const { textContent, toolBlocks } = convertMessageContent(msg.content)
+    const { textContent, toolBlocks, images } = convertMessageContent(msg.content)
 
     if (msg.role === 'assistant') {
       const parts: string[] = []
@@ -257,13 +280,54 @@ export function convertMessagesWithTools(
           parts.push(toolResultToText(block))
         }
       }
-      if (parts.length) {
-        result.push({ role: 'user', content: parts.join('\n') })
+      if (parts.length || images.length) {
+        result.push({
+          role: 'user',
+          content: parts.join('\n'),
+          images: images.length > 0 ? images : undefined,
+        })
       }
     }
   }
 
-  return mergeConsecutiveMessages(result)
+  return mergeConsecutiveMessagesWithImages(result)
+}
+
+function mergeConsecutiveMessagesWithImages(messages: ConvertedMessage[]): ConvertedMessage[] {
+  if (!messages.length) return []
+
+  const result: ConvertedMessage[] = []
+  let pendingRole: string | null = null
+  let pendingContents: string[] = []
+  let pendingImages: ExtractedImage[] = []
+
+  for (const msg of messages) {
+    if (msg.role === pendingRole) {
+      if (msg.content) pendingContents.push(msg.content)
+      if (msg.images) pendingImages.push(...msg.images)
+    } else {
+      if (pendingRole && (pendingContents.length || pendingImages.length)) {
+        result.push({
+          role: pendingRole,
+          content: pendingContents.join('\n\n'),
+          images: pendingImages.length > 0 ? pendingImages : undefined,
+        })
+      }
+      pendingRole = msg.role
+      pendingContents = msg.content ? [msg.content] : []
+      pendingImages = msg.images ? [...msg.images] : []
+    }
+  }
+
+  if (pendingRole && (pendingContents.length || pendingImages.length)) {
+    result.push({
+      role: pendingRole,
+      content: pendingContents.join('\n\n'),
+      images: pendingImages.length > 0 ? pendingImages : undefined,
+    })
+  }
+
+  return result
 }
 
 // ============ Loop Detection ============

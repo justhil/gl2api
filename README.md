@@ -21,7 +21,7 @@
 | 思维链 (Thinking) | ✅ |
 | 多账号管理 | ✅ |
 | 前端管理界面 | ✅ |
-| 图片传入 | ⏳ 待实现 |
+| 图片传入 | ✅ |
 
 ## 部署到 Vercel
 
@@ -104,13 +104,82 @@ curl -X POST https://your-domain.vercel.app/api/v1/messages \
   }'
 ```
 
-## 图片支持（待实现）
+## 图片支持
 
-图片传入功能已预留接口，待抓包 Gumloop API 后完善。
+支持通过各种 API 格式传入图片，图片会自动上传到 Gumloop 并在对话中使用。
 
-相关代码位置：
-- `lib/gumloop/types.ts` - `ImageContent` 类型定义
-- `lib/gumloop/types.ts` - `extractImageFromContent` 函数
+### Claude 格式
+
+```json
+{
+  "model": "claude-sonnet-4-5",
+  "messages": [{
+    "role": "user",
+    "content": [
+      {"type": "text", "text": "描述这张图片"},
+      {
+        "type": "image",
+        "source": {
+          "type": "base64",
+          "media_type": "image/jpeg",
+          "data": "/9j/4AAQSkZJRg..."
+        }
+      }
+    ]
+  }],
+  "max_tokens": 1024
+}
+```
+
+### OpenAI 格式
+
+```json
+{
+  "model": "gpt-4-vision-preview",
+  "messages": [{
+    "role": "user",
+    "content": [
+      {"type": "text", "text": "描述这张图片"},
+      {
+        "type": "image_url",
+        "image_url": {
+          "url": "data:image/jpeg;base64,/9j/4AAQSkZJRg..."
+        }
+      }
+    ]
+  }]
+}
+```
+
+### Gemini 格式
+
+```json
+{
+  "contents": [{
+    "parts": [
+      {"text": "描述这张图片"},
+      {
+        "inline_data": {
+          "mime_type": "image/jpeg",
+          "data": "/9j/4AAQSkZJRg..."
+        }
+      }
+    ]
+  }]
+}
+```
+
+### 支持的图片格式
+
+- `image/jpeg`
+- `image/png`
+- `image/gif`
+- `image/webp`
+
+### 相关代码
+
+- `lib/gumloop/image.ts` - 图片上传和提取逻辑
+- `lib/gumloop/types.ts` - 图片相关类型定义
 
 ## 技术栈
 

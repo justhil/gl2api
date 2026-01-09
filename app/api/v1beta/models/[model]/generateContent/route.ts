@@ -4,12 +4,48 @@ import { verifyApiKey } from '@/lib/utils/api-key'
 import { mapModel } from '@/lib/utils/model-map'
 import { getEnabledAccount } from '@/lib/db/accounts'
 import { getToken } from '@/lib/cache/token'
-import { sendChat } from '@/lib/gumloop/client'
+import { sendChat, type Message } from '@/lib/gumloop/client'
 import { GumloopStreamHandler } from '@/lib/gumloop/handler'
 import { buildGeminiResponse } from '@/lib/gumloop/parser'
+import { extractGeminiImage, uploadImage, createImagePart, type ImagePart } from '@/lib/gumloop/image'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
+
+interface ExtractedMessage {
+  role: string
+  content: string
+  images?: Array<{ base64Data: string; mediaType: string }>
+}
+
+async function processImagesInMessages(
+  extractedMessages: ExtractedMessage[],
+  chatId: string,
+  userId: string,
+  idToken: string
+): Promise<Message[]> {
+  const result: Message[] = []
+
+  for (const msg of extractedMessages) {
+    const message: Message = {
+      role: msg.role,
+      content: msg.content,
+    }
+
+    if (msg.images?.length) {
+      const imageParts: ImagePart[] = []
+      for (const img of msg.images) {
+        const uploaded = await uploadImage(img.base64Data, img.mediaType, chatId, userId, idToken)
+        imageParts.push(createImagePart(uploaded))
+      }
+      message.images = imageParts
+    }
+
+    result.push(message)
+  }
+
+  return result
+}
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ model: string }> }) {
   const { valid } = verifyApiKey(req)
@@ -31,24 +67,41 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ mod
   }
 
   let idToken: string
+  let userId: string
   try {
     const tokenData = await getToken(account.id, account.refreshToken)
     idToken = tokenData.idToken
+    userId = tokenData.userId
   } catch (err) {
     return NextResponse.json({ error: { code: 500, message: `Authentication failed: ${err}` } }, { status: 500 })
   }
 
-  const messages: Array<{ role: string; content: string }> = []
+  const extractedMessages: ExtractedMessage[] = []
   for (const content of data.contents) {
     const role = content.role || 'user'
-    const text = content.parts
-      .filter((p) => p.text)
-      .map((p) => p.text)
-      .join('\n')
-    messages.push({ role, content: text })
+    const textParts: string[] = []
+    const images: Array<{ base64Data: string; mediaType: string }> = []
+
+    for (const part of content.parts) {
+      if (part.text) {
+        textParts.push(part.text)
+      } else {
+        const img = extractGeminiImage(part)
+        if (img) {
+          images.push(img)
+        }
+      }
+    }
+
+    extractedMessages.push({
+      role,
+      content: textParts.join('\n'),
+      images: images.length > 0 ? images : undefined,
+    })
   }
 
   const model = mapModel(modelParam)
+  const messages = await processImagesInMessages(extractedMessages, account.gummieId, userId, idToken)
   const handler = new GumloopStreamHandler(model)
 
   for await (const event of sendChat(account.gummieId, messages, idToken)) {

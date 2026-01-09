@@ -1,12 +1,35 @@
 import { z } from 'zod'
 
+// ============ Gumloop Message Part Types ============
+
+export interface GumloopFilePart {
+  id: string
+  type: 'file'
+  timestamp: string
+  file: {
+    filename: string
+    media_type: string
+    preview_url: string
+  }
+}
+
+export interface GumloopTextPart {
+  id: string
+  type: 'text'
+  text: string
+  timestamp?: string
+}
+
+export type GumloopMessagePart = GumloopFilePart | GumloopTextPart
+
 // ============ Gumloop Internal Types ============
 
 export interface GumloopMessage {
   id: string
   role: 'user' | 'assistant'
   content?: string
-  parts?: Array<{ id: string; type: string; text?: string }>
+  timestamp?: string
+  parts?: GumloopMessagePart[]
 }
 
 export interface GumloopEvent {
@@ -122,32 +145,37 @@ export type GeminiPart = z.infer<typeof GeminiPartSchema>
 export type GeminiContent = z.infer<typeof GeminiContentSchema>
 export type GeminiRequest = z.infer<typeof GeminiRequestSchema>
 
-// ============ Image Support (Placeholder) ============
-// TODO: 图片传入功能 - 待抓包 Gumloop API 后完善
-//
-// Claude 图片格式:
-// { type: 'image', source: { type: 'base64', media_type: 'image/png', data: '...' } }
-//
-// OpenAI 图片格式:
-// { type: 'image_url', image_url: { url: 'data:image/png;base64,...' } }
-//
-// Gemini 图片格式:
-// { inline_data: { mime_type: 'image/png', data: '...' } }
-//
-// 需要确认 Gumloop WebSocket API 是否支持图片传输
+// ============ Image Support ============
+// Gumloop 图片处理流程:
+// 1. 上传图片到 /upload_chunk + /merge_chunks 获取 preview_url
+// 2. 在消息 parts 中使用 type: "file" 携带图片信息
 
-export interface ImageContent {
+// Claude API 图片格式
+export interface ClaudeImageContent {
   type: 'image'
   source: {
-    type: 'base64'
-    media_type: string
-    data: string
+    type: 'base64' | 'url'
+    media_type?: string
+    data?: string
+    url?: string
   }
 }
 
-export function extractImageFromContent(content: unknown): ImageContent | null {
-  // TODO: 实现图片提取逻辑
-  return null
+// OpenAI API 图片格式
+export interface OpenAIImageContent {
+  type: 'image_url'
+  image_url: {
+    url: string
+    detail?: 'low' | 'high' | 'auto'
+  }
+}
+
+// Gemini API 图片格式
+export interface GeminiImageContent {
+  inline_data: {
+    mime_type: string
+    data: string
+  }
 }
 
 // ============ Gumloop API Types ============

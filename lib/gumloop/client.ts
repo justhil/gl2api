@@ -1,5 +1,6 @@
 import WebSocket from 'ws'
-import type { GumloopEvent, GumloopMessage } from './types'
+import type { GumloopEvent, GumloopMessage, GumloopMessagePart } from './types'
+import type { ImagePart } from './image'
 
 const WS_URL = 'wss://ws.gumloop.com/ws/gummies'
 const API_BASE = 'https://api.gumloop.com'
@@ -13,15 +14,18 @@ function generateId(len = 22): string {
   return result
 }
 
-interface Message {
+export interface Message {
   role: string
   content: string
   id?: string
+  images?: ImagePart[]
 }
 
 function formatMessages(messages: Message[]): GumloopMessage[] {
   return messages.map((msg) => {
     const msgId = msg.id || `msg_${generateId(24)}`
+    const timestamp = new Date().toISOString()
+
     if (msg.role === 'assistant') {
       return {
         id: msgId,
@@ -29,6 +33,29 @@ function formatMessages(messages: Message[]): GumloopMessage[] {
         parts: [{ id: `${msgId}_part`, type: 'text', text: msg.content }],
       }
     }
+
+    // 用户消息：可能包含图片
+    const parts: GumloopMessagePart[] = []
+
+    // 添加图片 parts
+    if (msg.images?.length) {
+      for (const img of msg.images) {
+        parts.push(img)
+      }
+    }
+
+    // 如果有图片，返回带 parts 的格式
+    if (parts.length > 0) {
+      return {
+        id: msgId,
+        role: 'user' as const,
+        timestamp,
+        content: msg.content,
+        parts,
+      }
+    }
+
+    // 纯文本消息
     return {
       id: msgId,
       role: 'user' as const,
