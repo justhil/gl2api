@@ -36,26 +36,25 @@ function formatMessages(messages: Message[]): GumloopMessage[] {
       }
     }
 
-    const parts: GumloopMessagePart[] = []
-
-    // 文件放在前面
+    // 只有在有文件时才使用 parts 格式
     if (msg.files?.length) {
+      const parts: GumloopMessagePart[] = []
+
+      // 文件放在前面
       for (const file of msg.files) {
         parts.push(file)
       }
-    }
 
-    // 文本内容作为 part 添加
-    if (msg.content) {
-      parts.push({
-        id: `${msgId}_text`,
-        type: 'text',
-        text: msg.content,
-        timestamp,
-      })
-    }
+      // 文本内容作为 part 添加
+      if (msg.content) {
+        parts.push({
+          id: `${msgId}_text`,
+          type: 'text',
+          text: msg.content,
+          timestamp,
+        })
+      }
 
-    if (parts.length > 0) {
       return {
         id: msgId,
         role: 'user' as const,
@@ -64,6 +63,7 @@ function formatMessages(messages: Message[]): GumloopMessage[] {
       }
     }
 
+    // 无文件时使用简单的 content 格式
     return {
       id: msgId,
       role: 'user' as const,
