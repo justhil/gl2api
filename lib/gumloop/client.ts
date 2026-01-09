@@ -153,9 +153,9 @@ export async function* sendChat(
   ws.on('message', (data) => {
     try {
       const event = JSON.parse(data.toString()) as GumloopEvent
-      debugEvents.push(`msg:${event.type}`)
+      debugEvents.push(`msg:${event.type}${event.type === 'finish' ? `:final=${event.final}` : ''}`)
       push({ type: 'event', event })
-      if (event.type === 'finish') {
+      if (event.type === 'finish' && event.final === true) {
         ws.close()
       }
     } catch {
@@ -182,7 +182,7 @@ export async function* sendChat(
     if (item.type === 'error') throw item.error
     if (item.type === 'done') break
     yield item.event
-    if (item.event.type === 'finish') break
+    if (item.event.type === 'finish' && item.event.final === true) break
   }
 
   // 输出调试事件

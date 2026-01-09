@@ -38,6 +38,7 @@ export interface GumloopEvent {
   delta?: string
   usage?: { input_tokens?: number; output_tokens?: number }
   finishReason?: string
+  final?: boolean
 }
 
 export interface TokenCache {
