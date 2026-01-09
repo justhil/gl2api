@@ -139,6 +139,7 @@ export async function* sendChat(
     try {
       const data = typeof event.data === 'string' ? event.data : event.data.toString()
       const parsed = JSON.parse(data) as GumloopEvent
+      console.log('[WS] Received event:', parsed.type, parsed.type === 'finish' ? JSON.stringify(parsed) : '')
 
       if (resolver) {
         const r = resolver
@@ -149,6 +150,7 @@ export async function* sendChat(
       }
 
       if (parsed.type === 'finish') {
+        console.log('[WS] Finish event received, closing WebSocket')
         closed = true
         ws.close()
       }
@@ -158,6 +160,7 @@ export async function* sendChat(
   }
 
   ws.onerror = (err: Event) => {
+    console.log('[WS] Error occurred')
     error = err instanceof Error ? err : new Error('WebSocket error')
     closed = true
     if (resolver) {
@@ -168,6 +171,7 @@ export async function* sendChat(
   }
 
   ws.onclose = () => {
+    console.log('[WS] Connection closed')
     closed = true
     if (resolver) {
       const r = resolver
