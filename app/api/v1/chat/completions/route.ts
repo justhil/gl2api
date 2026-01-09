@@ -85,6 +85,7 @@ async function processImagesInMessages(
 }
 
 export async function POST(req: NextRequest) {
+  console.log('[chat/completions] request received')
   const { valid } = verifyApiKey(req)
   if (!valid) {
     return NextResponse.json({ error: 'Invalid API key' }, { status: 401 })
