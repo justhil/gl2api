@@ -150,13 +150,58 @@ export async function POST(req: NextRequest) {
           write(buildOpenAIChunk(streamId, model, { role: 'assistant', created }))
 
           let fullText = ''
+          // 当有 tools 时，需要缓冲文本以过滤 <tool_use> 块
+          let textBuffer = ''
+          let inToolUseXml = false
+
           for await (const event of sendChat(gummieId, messages, idToken, chatId)) {
             const ev = handler.handleEvent(event)
             if (ev.type === 'reasoning_delta' && ev.delta) {
               write(buildOpenAIChunk(streamId, model, { reasoningContent: ev.delta, created }))
             } else if (ev.type === 'text_delta' && ev.delta) {
               fullText += ev.delta
-              write(buildOpenAIChunk(streamId, model, { content: ev.delta, created }))
+
+              if (hasTools) {
+                // 过滤 <tool_use> 块
+                textBuffer += ev.delta
+
+                const toolUseStart = textBuffer.indexOf('<tool_use')
+                if (toolUseStart !== -1 && !inToolUseXml) {
+                  const beforeToolUse = textBuffer.substring(0, toolUseStart)
+                  if (beforeToolUse) {
+                    write(buildOpenAIChunk(streamId, model, { content: beforeToolUse, created }))
+                  }
+                  textBuffer = textBuffer.substring(toolUseStart)
+                  inToolUseXml = true
+                }
+
+                if (inToolUseXml) {
+                  const toolUseEnd = textBuffer.indexOf('</tool_use>')
+                  if (toolUseEnd !== -1) {
+                    textBuffer = textBuffer.substring(toolUseEnd + '</tool_use>'.length)
+                    inToolUseXml = false
+                  }
+                }
+
+                if (!inToolUseXml && textBuffer) {
+                  const safeEnd = textBuffer.lastIndexOf('<')
+                  if (safeEnd > 0) {
+                    const safeText = textBuffer.substring(0, safeEnd)
+                    if (safeText) {
+                      write(buildOpenAIChunk(streamId, model, { content: safeText, created }))
+                    }
+                    textBuffer = textBuffer.substring(safeEnd)
+                  }
+                }
+              } else {
+                write(buildOpenAIChunk(streamId, model, { content: ev.delta, created }))
+              }
+            } else if (ev.type === 'text_end') {
+              // 输出剩余的缓冲文本（排除未完成的 tool_use）
+              if (hasTools && textBuffer && !inToolUseXml) {
+                write(buildOpenAIChunk(streamId, model, { content: textBuffer, created }))
+                textBuffer = ''
+              }
             } else if (ev.type === 'finish') {
               // 检查是否包含工具调用
               if (hasTools) {
