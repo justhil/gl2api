@@ -1,45 +1,24 @@
-// Gumloop 支持的模型列表 (model_name)
+// 模型映射：客户端名称 → Gumloop 实际名称
+const MODEL_MAPPING: Record<string, string> = {
+  // Anthropic Claude 映射
+  'claude-3-7-sonnet-20250219': 'claude-3-7-sonnet-latest',
+  'claude-haiku-4-5-20251001': 'claude-haiku-4-5',
+  'claude-opus-4-5-20251101': 'claude-opus-4-5',
+  'claude-sonnet-4-20250514': 'claude-sonnet-4-0',
+  'claude-sonnet-4-5-20250929': 'claude-sonnet-4-5',
+}
 
-export const AVAILABLE_MODELS = [
-  // Anthropic Claude
-  'claude-opus-4-5',      // Claude 4.5 Opus
-  'claude-opus-4-1',      // Claude 4.1 Opus
-  'claude-opus-4-0',      // Claude 4 Opus
-  'claude-sonnet-4-5',    // Claude 4.5 Sonnet
-  'claude-sonnet-4-0',    // Claude 4 Sonnet
-  'claude-3-7-sonnet-latest', // Claude 3.7 Sonnet
-  'claude-haiku-4-5',     // Claude 4.5 Haiku
+// 对外暴露的模型列表（客户端使用的名称）
+export const AVAILABLE_MODELS = Object.keys(MODEL_MAPPING) as readonly string[]
 
-  // OpenAI GPT
-  'gpt-4.1',
-  'gpt-4.1-mini',
-  'gpt-4.1-nano',
-  'gpt-5.2',
-  'gpt-5.1',
-  'gpt-5',
-  'gpt-5-mini',
-  'gpt-5-nano',
+export type GumloopModel = string
 
-  // OpenAI o-series
-  'o3',
-  'o4-mini',
-  'o3-deep-research',
-  'o4-mini-deep-research',
-
-  // Google Gemini
-  'gemini-3-pro-preview', // Gemini 3 Pro
-  'gemini-3-flash',
-  'gemini-2.5-pro',
-  'gemini-2.5-flash',
-] as const
-
-export type GumloopModel = (typeof AVAILABLE_MODELS)[number]
-
-// 直接返回模型名，不做映射
+// 将客户端模型名映射为 Gumloop 实际模型名
 export function mapModel(model: string): string {
-  return model.toLowerCase().trim()
+  const normalized = model.toLowerCase().trim()
+  return MODEL_MAPPING[normalized] || normalized
 }
 
 export function isValidModel(model: string): boolean {
-  return AVAILABLE_MODELS.includes(model as GumloopModel)
+  return model in MODEL_MAPPING
 }
