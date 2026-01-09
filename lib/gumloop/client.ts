@@ -194,7 +194,7 @@ export async function* sendChat(
       if (pending.length > 0) {
         const event = pending.shift()!
         yield event
-        if (event.type === 'finish') {
+        if (event.type === 'finish' || event.type === 'text-end') {
           return
         }
         continue
