@@ -30,20 +30,22 @@ jobs:
       - name: Build Next.js
         run: npm run build
 
-      - name: Install Deno
-        uses: denoland/setup-deno@v2
-        with:
-          deno-version: v2.x
-
       - name: Clean build artifacts
         run: |
           rm -rf .next/cache
+          rm -rf .next/static/development
           find .next -name "*.map" -delete
+          find .next -name "*.nft.json" -delete
+          find .next -type f -name "*.js" -size +500k -delete 2>/dev/null || true
+          echo "Build size after cleanup:"
+          du -sh .next
 
       - name: Deploy to Deno Deploy
-        env:
-          DENO_DEPLOY_TOKEN: ${{ secrets.DENO_DEPLOY_TOKEN }}
-        run: |
-          deno install -gArf jsr:@deno/deployctl
-          deployctl deploy --prod --project=justhil-gl2api --include=.next --include=public --entrypoint=jsr:@deno/nextjs-start/v14 --token="$DENO_DEPLOY_TOKEN"
+        uses: denoland/deployctl@v1
+        with:
+          project: justhil-gl2api
+          entrypoint: jsr:@deno/nextjs-start/v14
+          include: |
+            .next
+            public
 
