@@ -1,49 +1,36 @@
-// Gumloop 支持的原始模型名称
-// 来源: https://docs.gumloop.com/core-concepts/ai_models
+// Gumloop 支持的模型列表
 
 export const AVAILABLE_MODELS = [
-  // Expert (30 credits)
-  'o3',
-  'o3-deep-research',
-  'gpt-5',
+  // Anthropic Claude
+  'claude-4.5-opus',
   'claude-4.1-opus',
   'claude-4-opus',
-  'claude-3.7-sonnet-thinking',
-
-  // Advanced (20 credits)
-  'gpt-4.1',
-  'o4-mini',
-  'o4-mini-deep-research',
+  'claude-4.5-sonnet',
   'claude-4-sonnet',
   'claude-3.7-sonnet',
-  'gemini-2.5-pro',
-  'perplexity-sonar-reasoning-pro',
-  'perplexity-sonar-reasoning',
-  'perplexity-sonar-pro',
-  'perplexity-sonar-deep-research',
-  'llama-3-405b-instruct',
-  'grok-4',
-  'grok-3',
+  'claude-4.5-haiku',
 
-  // Standard (2 credits)
+  // OpenAI GPT
+  'gpt-4.1',
   'gpt-4.1-mini',
   'gpt-4.1-nano',
+  'gpt-5.2',
+  'gpt-5.1',
+  'gpt-5',
   'gpt-5-mini',
   'gpt-5-nano',
-  'claude-3.5-haiku',
-  'gemini-2.5-flash',
-  'perplexity-sonar',
-  'llama-3-70b',
-  'grok-3-mini',
-  'deepseek-v3',
-  'deepseek-r1',
 
-  // Vision
-  'gpt-4.1-vision',
-  'gpt-4.1-mini-vision',
-  'gpt-4.1-nano-vision',
-  'gpt-5-mini-vision',
-  'gpt-5-nano-vision',
+  // OpenAI o-series
+  'o3',
+  'o4-mini',
+  'o3-deep-research',
+  'o4-mini-deep-research',
+
+  // Google Gemini
+  'gemini-3-pro',
+  'gemini-3-flash',
+  'gemini-2.5-pro',
+  'gemini-2.5-flash',
 ] as const
 
 export type GumloopModel = (typeof AVAILABLE_MODELS)[number]

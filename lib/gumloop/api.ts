@@ -46,7 +46,7 @@ export async function createGummie(
     headers: getHeaders(idToken, userId),
     body: JSON.stringify({
       name: options.name,
-      model_name: options.modelName || 'claude-4-sonnet',
+      model_name: options.modelName || 'claude-4.5-sonnet',
       author_id: userId,
       description: options.description || '',
       system_prompt: options.systemPrompt || '',

@@ -218,6 +218,31 @@ export default function AdminPage() {
     }
   }
 
+  async function deleteAllGummies(accountId: string) {
+    if (!confirm('确定删除该账号下的所有 Gummie？此操作不可恢复！')) return
+    setLoading(true)
+    setError('')
+    try {
+      const resp = await fetch(`/api/v2/gummies?accountId=${accountId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await resp.json()
+      if (resp.ok) {
+        setSuccess(`已删除 ${data.deletedCount} 个 Gummie`)
+        setTimeout(() => setSuccess(''), 3000)
+        loadGummies(accountId)
+        loadAccounts()
+      } else {
+        setError(data.error || '删除失败')
+      }
+    } catch {
+      setError('网络错误')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   async function handleChat(e: React.FormEvent) {
     e.preventDefault()
     if (!chatInput.trim()) return
@@ -441,8 +466,17 @@ export default function AdminPage() {
 
                 {/* Gummies from API */}
                 <div className="bg-zinc-900 border border-zinc-800 rounded-lg">
-                  <div className="p-3 border-b border-zinc-800">
+                  <div className="p-3 border-b border-zinc-800 flex items-center justify-between">
                     <span className="font-medium">Gummie 列表 ({gummies.length})</span>
+                    {gummies.length > 0 && (
+                      <button
+                        onClick={() => deleteAllGummies(selectedAccount.id)}
+                        disabled={loading}
+                        className="px-2 py-1 bg-red-600/80 hover:bg-red-600 rounded text-xs disabled:opacity-50"
+                      >
+                        删除全部
+                      </button>
+                    )}
                   </div>
                   <div className="divide-y divide-zinc-800 max-h-64 overflow-y-auto">
                     {gummies.map((g) => (

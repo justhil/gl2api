@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { verifyAdmin } from '@/lib/utils/admin'
-import { getAccount } from '@/lib/db/accounts'
+import { getAccount, updateAccount } from '@/lib/db/accounts'
 import { getToken } from '@/lib/cache/token'
-import { listGummies, createGummie } from '@/lib/gumloop/api'
+import { listGummies, createGummie, deleteGummie } from '@/lib/gumloop/api'
 
 const CreateGummieSchema = z.object({
   accountId: z.string(),
@@ -59,6 +59,45 @@ export async function POST(req: NextRequest) {
     const { idToken, userId } = await getToken(accountId, account.refreshToken)
     const gummie = await createGummie(idToken, userId, { name, modelName, systemPrompt, description })
     return NextResponse.json({ gummie })
+  } catch (err) {
+    return NextResponse.json({ error: String(err) }, { status: 500 })
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  if (!verifyAdmin(req)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const url = new URL(req.url)
+  const accountId = url.searchParams.get('accountId')
+  if (!accountId) {
+    return NextResponse.json({ error: 'accountId required' }, { status: 400 })
+  }
+
+  const account = await getAccount(accountId)
+  if (!account?.refreshToken) {
+    return NextResponse.json({ error: 'Account not found or invalid' }, { status: 404 })
+  }
+
+  try {
+    const { idToken, userId } = await getToken(accountId, account.refreshToken)
+    const gummies = await listGummies(idToken, userId)
+
+    let deletedCount = 0
+    for (const gummie of gummies) {
+      try {
+        await deleteGummie(gummie.gummie_id, idToken, userId)
+        deletedCount++
+      } catch (err) {
+        console.error(`Failed to delete gummie ${gummie.gummie_id}:`, err)
+      }
+    }
+
+    // 清空账号的 gummies 映射
+    await updateAccount(accountId, { gummies: {}, gummieId: undefined })
+
+    return NextResponse.json({ deletedCount, totalCount: gummies.length })
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 })
   }
