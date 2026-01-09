@@ -146,6 +146,11 @@ export async function POST(req: NextRequest) {
               break
             }
           }
+          // WebSocket 可能在未发送 finish 事件时断开，确保客户端收到结束信号
+          if (!handler.finished) {
+            controller.enqueue(encoder.encode(buildOpenAIChunk(streamId, model, { finishReason: 'stop', created })))
+            controller.enqueue(encoder.encode(buildOpenAIDone()))
+          }
         } catch (err) {
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: String(err) })}\n\n`))
         } finally {

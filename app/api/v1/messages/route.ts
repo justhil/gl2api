@@ -294,6 +294,19 @@ async function processChat(
               break
             }
           }
+          // WebSocket 可能在未发送 finish 事件时断开，确保客户端收到结束信号
+          if (!handler.finished) {
+            if (inThinking) {
+              controller.enqueue(encoder.encode(buildContentBlockStop(blockIdx)))
+              blockIdx++
+            }
+            if (inText) {
+              controller.enqueue(encoder.encode(buildContentBlockStop(blockIdx)))
+              blockIdx++
+            }
+            controller.enqueue(encoder.encode(buildMessageDelta(0, 'end_turn')))
+            controller.enqueue(encoder.encode(buildMessageStop()))
+          }
         } catch (err) {
           controller.enqueue(encoder.encode(`event: error\ndata: ${JSON.stringify({ error: String(err) })}\n\n`))
         } finally {
