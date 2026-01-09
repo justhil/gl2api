@@ -259,47 +259,37 @@ async function processChat(
                 inText = false
               }
             } else if (ev.type === 'finish') {
-              if (inThinking) {
-                write(buildContentBlockStop(blockIdx))
-                blockIdx++
-              }
-              if (inText) {
-                write(buildContentBlockStop(blockIdx))
-                blockIdx++
-              }
-
-              let stopReason = 'end_turn'
-              if (hasTools) {
-                const { toolUses } = parseToolCalls(fullText)
-                if (toolUses.length) {
-                  stopReason = 'tool_use'
-                  for (const tu of toolUses) {
-                    write(buildToolUseStart(blockIdx, tu.id, tu.name))
-                    write(buildToolUseDelta(blockIdx, JSON.stringify(tu.input)))
-                    write(buildContentBlockStop(blockIdx))
-                    blockIdx++
-                  }
-                }
-              }
-
-              write(buildMessageDelta(ev.usage?.output_tokens || 0, stopReason))
-              write(buildMessageStop())
-              break
+              // finish 事件只有非 Claude/Gemini 模型会发送
+              // 这里不做特殊处理，让循环自然结束后统一处理
             }
           }
 
-          if (!handler.finished) {
-            if (inThinking) {
-              write(buildContentBlockStop(blockIdx))
-              blockIdx++
-            }
-            if (inText) {
-              write(buildContentBlockStop(blockIdx))
-              blockIdx++
-            }
-            write(buildMessageDelta(0, 'end_turn'))
-            write(buildMessageStop())
+          // 循环结束后统一处理结束逻辑
+          if (inThinking) {
+            write(buildContentBlockStop(blockIdx))
+            blockIdx++
           }
+          if (inText) {
+            write(buildContentBlockStop(blockIdx))
+            blockIdx++
+          }
+
+          let stopReason = 'end_turn'
+          if (hasTools) {
+            const { toolUses } = parseToolCalls(fullText)
+            if (toolUses.length) {
+              stopReason = 'tool_use'
+              for (const tu of toolUses) {
+                write(buildToolUseStart(blockIdx, tu.id, tu.name))
+                write(buildToolUseDelta(blockIdx, JSON.stringify(tu.input)))
+                write(buildContentBlockStop(blockIdx))
+                blockIdx++
+              }
+            }
+          }
+
+          write(buildMessageDelta(handler.outputTokens, stopReason))
+          write(buildMessageStop())
           recordRequest(model, handler.inputTokens, handler.outputTokens).catch(() => {})
         } catch (err) {
           write(`event: error\ndata: ${JSON.stringify({ error: String(err) })}\n\n`)
