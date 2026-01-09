@@ -71,7 +71,7 @@ export interface Account {
 export const ClaudeToolSchema = z.object({
   name: z.string(),
   description: z.string().optional().default(''),
-  input_schema: z.record(z.any()),
+  input_schema: z.any(),
 })
 
 export const ClaudeMessageSchema = z.object({

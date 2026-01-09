@@ -67,7 +67,7 @@ function formatMessages(messages: Message[]): GumloopMessage[] {
 export interface GumloopTool {
   name: string
   description: string
-  input_schema: Record<string, unknown>
+  input_schema: unknown
 }
 
 export async function updateGummieConfig(
