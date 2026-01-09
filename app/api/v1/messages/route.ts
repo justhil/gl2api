@@ -356,6 +356,7 @@ async function processChat(
     model,
     content,
     stop_reason: stopReason,
+    stop_sequence: null,
     usage: { input_tokens: handler.inputTokens, output_tokens: handler.outputTokens },
   })
 }

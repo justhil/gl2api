@@ -12,6 +12,7 @@ export function buildMessageStart(msgId: string, model: string, inputTokens: num
       model,
       content: [],
       stop_reason: null,
+      stop_sequence: null,
       usage: { input_tokens: inputTokens, output_tokens: 0 },
     },
   })}\n\n`
