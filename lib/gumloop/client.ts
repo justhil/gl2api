@@ -1,6 +1,6 @@
 import WebSocket from 'ws'
 import type { GumloopEvent, GumloopMessage, GumloopMessagePart } from './types'
-import type { ImagePart } from './image'
+import type { FilePart } from './file'
 
 const WS_URL = 'wss://ws.gumloop.com/ws/gummies'
 const API_BASE = 'https://api.gumloop.com'
@@ -18,7 +18,7 @@ export interface Message {
   role: string
   content: string
   id?: string
-  images?: ImagePart[]
+  files?: FilePart[]
 }
 
 function formatMessages(messages: Message[]): GumloopMessage[] {
@@ -34,17 +34,14 @@ function formatMessages(messages: Message[]): GumloopMessage[] {
       }
     }
 
-    // 用户消息：可能包含图片
     const parts: GumloopMessagePart[] = []
 
-    // 添加图片 parts
-    if (msg.images?.length) {
-      for (const img of msg.images) {
-        parts.push(img)
+    if (msg.files?.length) {
+      for (const file of msg.files) {
+        parts.push(file)
       }
     }
 
-    // 如果有图片，返回带 parts 的格式
     if (parts.length > 0) {
       return {
         id: msgId,
@@ -55,7 +52,6 @@ function formatMessages(messages: Message[]): GumloopMessage[] {
       }
     }
 
-    // 纯文本消息
     return {
       id: msgId,
       role: 'user' as const,

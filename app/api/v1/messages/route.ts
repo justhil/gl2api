@@ -24,7 +24,7 @@ import {
   detectToolLoop,
   type ConvertedMessage,
 } from '@/lib/gumloop/tools'
-import { uploadImage, createImagePart, type ImagePart } from '@/lib/gumloop/image'
+import { uploadFile, createFilePart } from '@/lib/gumloop/file'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -108,11 +108,11 @@ export async function POST(req: NextRequest) {
       )
     : convertMessagesSimple(data.messages.map((m) => ({ role: m.role, content: m.content })))
 
-  const messages = await processImagesInMessages(convertedMessages, chatId, userId, idToken)
+  const messages = await processFilesInMessages(convertedMessages, chatId, userId, idToken)
   return processChat(gummieId, messages, model, data, hasTools, idToken, chatId)
 }
 
-async function processImagesInMessages(
+async function processFilesInMessages(
   convertedMessages: ConvertedMessage[],
   chatId: string,
   userId: string,
@@ -126,13 +126,11 @@ async function processImagesInMessages(
       content: msg.content,
     }
 
-    if (msg.images?.length) {
-      const imageParts: ImagePart[] = []
-      for (const img of msg.images) {
-        const uploaded = await uploadImage(img.base64Data, img.mediaType, chatId, userId, idToken)
-        imageParts.push(createImagePart(uploaded))
-      }
-      message.images = imageParts
+    if (msg.files?.length) {
+      const uploadedFiles = await Promise.all(
+        msg.files.map(f => uploadFile(f.base64Data, f.mediaType, chatId, userId, idToken, f.filename))
+      )
+      message.files = uploadedFiles.map(createFilePart)
     }
 
     result.push(message)

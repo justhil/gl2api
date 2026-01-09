@@ -7,7 +7,7 @@ import { getToken } from '@/lib/cache/token'
 import { sendChat, generateChatId, type Message } from '@/lib/gumloop/client'
 import { GumloopStreamHandler } from '@/lib/gumloop/handler'
 import { buildGeminiStreamChunk } from '@/lib/gumloop/parser'
-import { extractGeminiImage, uploadImage, createImagePart, type ImagePart } from '@/lib/gumloop/image'
+import { extractGeminiFile, uploadFile, createFilePart, type FilePart } from '@/lib/gumloop/file'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -15,10 +15,10 @@ export const maxDuration = 60
 interface ExtractedMessage {
   role: string
   content: string
-  images?: Array<{ base64Data: string; mediaType: string }>
+  files?: Array<{ base64Data: string; mediaType: string }>
 }
 
-async function processImagesInMessages(
+async function processFilesInMessages(
   extractedMessages: ExtractedMessage[],
   chatId: string,
   userId: string,
@@ -32,13 +32,13 @@ async function processImagesInMessages(
       content: msg.content,
     }
 
-    if (msg.images?.length) {
-      const imageParts: ImagePart[] = []
-      for (const img of msg.images) {
-        const uploaded = await uploadImage(img.base64Data, img.mediaType, chatId, userId, idToken)
-        imageParts.push(createImagePart(uploaded))
+    if (msg.files?.length) {
+      const fileParts: FilePart[] = []
+      for (const f of msg.files) {
+        const uploaded = await uploadFile(f.base64Data, f.mediaType, chatId, userId, idToken)
+        fileParts.push(createFilePart(uploaded))
       }
-      message.images = imageParts
+      message.files = fileParts
     }
 
     result.push(message)
@@ -80,15 +80,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ mod
   for (const content of data.contents) {
     const role = content.role || 'user'
     const textParts: string[] = []
-    const images: Array<{ base64Data: string; mediaType: string }> = []
+    const files: Array<{ base64Data: string; mediaType: string }> = []
 
     for (const part of content.parts) {
       if (part.text) {
         textParts.push(part.text)
       } else {
-        const img = extractGeminiImage(part)
-        if (img) {
-          images.push(img)
+        const file = extractGeminiFile(part)
+        if (file) {
+          files.push(file)
         }
       }
     }
@@ -96,13 +96,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ mod
     extractedMessages.push({
       role,
       content: textParts.join('\n'),
-      images: images.length > 0 ? images : undefined,
+      files: files.length > 0 ? files : undefined,
     })
   }
 
   const model = mapModel(modelParam)
   const chatId = generateChatId()
-  const messages = await processImagesInMessages(extractedMessages, chatId, userId, idToken)
+  const messages = await processFilesInMessages(extractedMessages, chatId, userId, idToken)
   const encoder = new TextEncoder()
 
   const stream = new ReadableStream({

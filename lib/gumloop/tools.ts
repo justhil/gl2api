@@ -1,5 +1,5 @@
 import type { ClaudeTool } from './types'
-import { extractImage, type ExtractedImage } from './image'
+import { extractFile, type ExtractedFile } from './file'
 
 // ============ Tool Definition Conversion ============
 
@@ -125,15 +125,15 @@ interface Message {
 export function convertMessageContent(content: string | MessageContent[] | Record<string, unknown>[]): {
   textContent: string
   toolBlocks: Array<ToolUseBlock | ToolResultBlock>
-  images: ExtractedImage[]
+  files: ExtractedFile[]
 } {
   if (typeof content === 'string') {
-    return { textContent: content, toolBlocks: [], images: [] }
+    return { textContent: content, toolBlocks: [], files: [] }
   }
 
   const textParts: string[] = []
   const toolBlocks: Array<ToolUseBlock | ToolResultBlock> = []
-  const images: ExtractedImage[] = []
+  const files: ExtractedFile[] = []
 
   for (const block of content) {
     const b = block as MessageContent
@@ -154,15 +154,14 @@ export function convertMessageContent(content: string | MessageContent[] | Recor
         is_error: b.is_error,
       })
     } else {
-      // 尝试提取图片
-      const img = extractImage(block)
-      if (img) {
-        images.push(img)
+      const file = extractFile(block)
+      if (file) {
+        files.push(file)
       }
     }
   }
 
-  return { textContent: textParts.join('\n'), toolBlocks, images }
+  return { textContent: textParts.join('\n'), toolBlocks, files }
 }
 
 function mergeConsecutiveMessages(messages: Array<{ role: string; content: string }>): Array<{ role: string; content: string }> {
@@ -194,7 +193,7 @@ function mergeConsecutiveMessages(messages: Array<{ role: string; content: strin
 export interface ConvertedMessage {
   role: string
   content: string
-  images?: ExtractedImage[]
+  files?: ExtractedFile[]
 }
 
 export function convertMessagesSimple(messages: Message[]): ConvertedMessage[] {
@@ -202,7 +201,7 @@ export function convertMessagesSimple(messages: Message[]): ConvertedMessage[] {
   const seenToolResultIds = new Set<string>()
 
   for (const msg of messages) {
-    const { textContent, toolBlocks, images } = convertMessageContent(msg.content)
+    const { textContent, toolBlocks, files } = convertMessageContent(msg.content)
 
     if (msg.role === 'assistant') {
       const parts: string[] = []
@@ -226,17 +225,17 @@ export function convertMessagesSimple(messages: Message[]): ConvertedMessage[] {
           parts.push(toolResultToText(block))
         }
       }
-      if (parts.length || images.length) {
+      if (parts.length || files.length) {
         result.push({
           role: 'user',
           content: parts.join('\n'),
-          images: images.length > 0 ? images : undefined,
+          files: files.length > 0 ? files : undefined,
         })
       }
     }
   }
 
-  return mergeConsecutiveMessagesWithImages(result)
+  return mergeConsecutiveMessagesWithFiles(result)
 }
 
 export function convertMessagesWithTools(
@@ -256,7 +255,7 @@ export function convertMessagesWithTools(
   }
 
   for (const msg of messages) {
-    const { textContent, toolBlocks, images } = convertMessageContent(msg.content)
+    const { textContent, toolBlocks, files } = convertMessageContent(msg.content)
 
     if (msg.role === 'assistant') {
       const parts: string[] = []
@@ -280,50 +279,50 @@ export function convertMessagesWithTools(
           parts.push(toolResultToText(block))
         }
       }
-      if (parts.length || images.length) {
+      if (parts.length || files.length) {
         result.push({
           role: 'user',
           content: parts.join('\n'),
-          images: images.length > 0 ? images : undefined,
+          files: files.length > 0 ? files : undefined,
         })
       }
     }
   }
 
-  return mergeConsecutiveMessagesWithImages(result)
+  return mergeConsecutiveMessagesWithFiles(result)
 }
 
-function mergeConsecutiveMessagesWithImages(messages: ConvertedMessage[]): ConvertedMessage[] {
+function mergeConsecutiveMessagesWithFiles(messages: ConvertedMessage[]): ConvertedMessage[] {
   if (!messages.length) return []
 
   const result: ConvertedMessage[] = []
   let pendingRole: string | null = null
   let pendingContents: string[] = []
-  let pendingImages: ExtractedImage[] = []
+  let pendingFiles: ExtractedFile[] = []
 
   for (const msg of messages) {
     if (msg.role === pendingRole) {
       if (msg.content) pendingContents.push(msg.content)
-      if (msg.images) pendingImages.push(...msg.images)
+      if (msg.files) pendingFiles.push(...msg.files)
     } else {
-      if (pendingRole && (pendingContents.length || pendingImages.length)) {
+      if (pendingRole && (pendingContents.length || pendingFiles.length)) {
         result.push({
           role: pendingRole,
           content: pendingContents.join('\n\n'),
-          images: pendingImages.length > 0 ? pendingImages : undefined,
+          files: pendingFiles.length > 0 ? pendingFiles : undefined,
         })
       }
       pendingRole = msg.role
       pendingContents = msg.content ? [msg.content] : []
-      pendingImages = msg.images ? [...msg.images] : []
+      pendingFiles = msg.files ? [...msg.files] : []
     }
   }
 
-  if (pendingRole && (pendingContents.length || pendingImages.length)) {
+  if (pendingRole && (pendingContents.length || pendingFiles.length)) {
     result.push({
       role: pendingRole,
       content: pendingContents.join('\n\n'),
-      images: pendingImages.length > 0 ? pendingImages : undefined,
+      files: pendingFiles.length > 0 ? pendingFiles : undefined,
     })
   }
 

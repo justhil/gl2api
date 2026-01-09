@@ -7,7 +7,7 @@ import { getToken } from '@/lib/cache/token'
 import { sendChat, generateChatId, type Message } from '@/lib/gumloop/client'
 import { GumloopStreamHandler } from '@/lib/gumloop/handler'
 import { buildOpenAIChunk, buildOpenAIDone } from '@/lib/gumloop/parser'
-import { extractOpenAIImage, uploadImage, createImagePart, type ImagePart } from '@/lib/gumloop/image'
+import { extractOpenAIImage, extractOpenAIFile, uploadFile, createFilePart } from '@/lib/gumloop/file'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -24,13 +24,13 @@ function generateId(): string {
 interface ExtractedMessage {
   role: string
   content: string
-  images?: Array<{ base64Data: string; mediaType: string }>
+  files?: Array<{ base64Data: string; mediaType: string; filename?: string }>
 }
 
 function convertMessages(messages: Array<{ role: string; content?: unknown }>): ExtractedMessage[] {
   return messages.map((msg) => {
     const content = msg.content
-    const images: Array<{ base64Data: string; mediaType: string }> = []
+    const files: Array<{ base64Data: string; mediaType: string; filename?: string }> = []
 
     if (Array.isArray(content)) {
       const textParts: string[] = []
@@ -40,14 +40,19 @@ function convertMessages(messages: Array<{ role: string; content?: unknown }>): 
         } else {
           const img = extractOpenAIImage(block)
           if (img) {
-            images.push(img)
+            files.push(img)
+          } else {
+            const file = extractOpenAIFile(block)
+            if (file) {
+              files.push(file)
+            }
           }
         }
       }
       return {
         role: msg.role,
         content: textParts.join('\n'),
-        images: images.length > 0 ? images : undefined,
+        files: files.length > 0 ? files : undefined,
       }
     }
 
@@ -55,7 +60,7 @@ function convertMessages(messages: Array<{ role: string; content?: unknown }>): 
   })
 }
 
-async function processImagesInMessages(
+async function processFilesInMessages(
   extractedMessages: ExtractedMessage[],
   chatId: string,
   userId: string,
@@ -69,13 +74,11 @@ async function processImagesInMessages(
       content: msg.content,
     }
 
-    if (msg.images?.length) {
-      const imageParts: ImagePart[] = []
-      for (const img of msg.images) {
-        const uploaded = await uploadImage(img.base64Data, img.mediaType, chatId, userId, idToken)
-        imageParts.push(createImagePart(uploaded))
-      }
-      message.images = imageParts
+    if (msg.files?.length) {
+      const uploadedFiles = await Promise.all(
+        msg.files.map(f => uploadFile(f.base64Data, f.mediaType, chatId, userId, idToken, f.filename))
+      )
+      message.files = uploadedFiles.map(createFilePart)
     }
 
     result.push(message)
@@ -122,7 +125,7 @@ export async function POST(req: NextRequest) {
 
   const extractedMessages = convertMessages(data.messages)
   const chatId = generateChatId()
-  const messages = await processImagesInMessages(extractedMessages, chatId, userId, idToken)
+  const messages = await processFilesInMessages(extractedMessages, chatId, userId, idToken)
   const streamId = generateId()
   const created = Math.floor(Date.now() / 1000)
 
