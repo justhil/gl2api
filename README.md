@@ -1,6 +1,6 @@
 # Gumloop 2API
 
-将 Gumloop AI 服务转换为标准 API 格式，支持 Vercel 部署。
+将 Gumloop AI 服务转换为标准 API 格式，支持 Deno Deploy 部署。
 
 ## 支持的 API 格式
 
@@ -22,18 +22,23 @@
 | 多账号管理 | ✅ |
 | 前端管理界面 | ✅ |
 | 图片传入 | ✅ |
+| 文件上传 (txt/pdf/docx) | ✅ |
+| 请求统计 (日/周/月) | ✅ |
+| 多账号额度汇总 | ✅ |
 
-## 部署到 Vercel
+## 部署到 Deno Deploy
 
 ### 1. Fork 或克隆仓库
 
-### 2. 在 Vercel 创建项目
+### 2. 配置 GitHub Actions
 
-1. 导入 Git 仓库
-2. 添加 Vercel KV 存储（Storage -> Create -> KV）
-3. 配置环境变量
+在仓库 Settings -> Secrets and variables -> Actions 中添加：
+
+- `DENO_DEPLOY_TOKEN`: Deno Deploy 访问令牌
 
 ### 3. 环境变量
+
+在 Deno Deploy 项目设置中配置：
 
 ```env
 # 管理密码
@@ -41,19 +46,11 @@ ADMIN_PASSWORD=your_admin_password
 
 # API Key 白名单（可选，逗号分隔）
 OPENAI_KEYS=key1,key2,key3
-
-# 默认 Gummie ID（可选）
-GUMLOOP_GUMMIE_ID=your_default_gummie_id
-
-# 默认账号密码（用于 Token 刷新）
-GUMLOOP_PASSWORD=your_gumloop_password
 ```
 
 ### 4. 部署
 
-```bash
-vercel deploy
-```
+推送到 main 分支会自动触发 GitHub Actions 部署。
 
 ## 本地开发
 
@@ -73,18 +70,28 @@ npm run dev
 
 ### 1. 访问管理界面
 
-打开 `https://your-domain.vercel.app/`，使用管理密码登录。
+打开 `https://your-domain.deno.dev/`，使用管理密码登录。
 
 ### 2. 添加 Gumloop 账号
 
-- **Gumloop 登录**：输入 Gumloop 邮箱和密码自动获取 Token
-- **手动添加**：直接输入 Gummie ID
+输入 Refresh Token 添加账号，系统会自动：
+- 删除账号内已有的所有 Agent
+- 为每个支持的模型创建对应的 Agent
 
-### 3. 调用 API
+### 3. 管理界面功能
+
+- **总额度显示**：汇总所有账号的剩余额度
+- **各账号额度**：单独显示每个账号的额度
+- **请求统计**：按日/周/月查看各模型的请求次数和 token 消耗
+- **全局 System Prompt**：设置后同步到所有 Agent
+- **账号管理**：启用/禁用/删除账号
+- **Agent 管理**：查看和删除账号下的 Agent
+
+### 4. 调用 API
 
 ```bash
 # OpenAI 格式
-curl -X POST https://your-domain.vercel.app/api/v1/chat/completions \
+curl -X POST https://your-domain.deno.dev/api/v1/chat/completions \
   -H "Authorization: Bearer your-api-key" \
   -H "Content-Type: application/json" \
   -d '{
@@ -94,7 +101,7 @@ curl -X POST https://your-domain.vercel.app/api/v1/chat/completions \
   }'
 
 # Claude 格式
-curl -X POST https://your-domain.vercel.app/api/v1/messages \
+curl -X POST https://your-domain.deno.dev/api/v1/messages \
   -H "Authorization: Bearer your-api-key" \
   -H "Content-Type: application/json" \
   -d '{
@@ -151,24 +158,6 @@ curl -X POST https://your-domain.vercel.app/api/v1/messages \
 }
 ```
 
-### Gemini 格式
-
-```json
-{
-  "contents": [{
-    "parts": [
-      {"text": "描述这张图片"},
-      {
-        "inline_data": {
-          "mime_type": "image/jpeg",
-          "data": "/9j/4AAQSkZJRg..."
-        }
-      }
-    ]
-  }]
-}
-```
-
 ### 支持的图片格式
 
 - `image/jpeg`
@@ -176,15 +165,20 @@ curl -X POST https://your-domain.vercel.app/api/v1/messages \
 - `image/gif`
 - `image/webp`
 
-### 相关代码
+## 文件上传支持
 
-- `lib/gumloop/image.ts` - 图片上传和提取逻辑
-- `lib/gumloop/types.ts` - 图片相关类型定义
+支持上传文档文件，系统会自动提取文本内容：
+
+- `.txt` - 纯文本
+- `.pdf` - PDF 文档
+- `.docx` - Word 文档
+- `.md` - Markdown
+- `.json` - JSON 文件
 
 ## 技术栈
 
 - Next.js 14 (App Router)
-- Vercel KV (数据存储)
+- Deno KV (数据存储)
 - WebSocket (ws 库)
 - Tailwind CSS
 - TypeScript + Zod
