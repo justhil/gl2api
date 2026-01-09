@@ -14,19 +14,6 @@ export interface ImagePart {
 }
 
 /**
- * 将 base64 转换为 Blob
- */
-function base64ToBlob(base64: string, mimeType: string): Blob {
-  const byteCharacters = atob(base64)
-  const byteNumbers = new Array(byteCharacters.length)
-  for (let i = 0; i < byteCharacters.length; i++) {
-    byteNumbers[i] = byteCharacters.charCodeAt(i)
-  }
-  const byteArray = new Uint8Array(byteNumbers)
-  return new Blob([byteArray], { type: mimeType })
-}
-
-/**
  * 上传图片到 Gumloop
  * 使用 upload_chunk (multipart/form-data) + merge_chunks (JSON) 流程
  *
@@ -49,7 +36,8 @@ export async function uploadImage(
 
   // Step 1: 使用 multipart/form-data 上传 chunk
   const formData = new FormData()
-  const blob = base64ToBlob(base64Data, 'application/octet-stream')
+  const binaryData = Buffer.from(base64Data, 'base64')
+  const blob = new Blob([binaryData.buffer.slice(binaryData.byteOffset, binaryData.byteOffset + binaryData.byteLength)], { type: 'application/octet-stream' })
   formData.append('file', blob, filename)
   formData.append('user_id', userId)
   formData.append('chunk_index', '0')
