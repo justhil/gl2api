@@ -60,6 +60,7 @@ export default function AdminPage() {
 
   const [globalSystemPrompt, setGlobalSystemPrompt] = useState('')
   const [settingsLoading, setSettingsLoading] = useState(false)
+  const [reinitLoading, setReinitLoading] = useState(false)
 
   const [allCredits, setAllCredits] = useState<AccountCredits[]>([])
   const [creditsLoading, setCreditsLoading] = useState(false)
@@ -151,6 +152,32 @@ export default function AdminPage() {
       setError('网络错误')
     } finally {
       setSettingsLoading(false)
+    }
+  }
+
+  async function reinitAllGummies() {
+    if (!confirm('确定重新初始化所有账号的 Agent？\n\n此操作将删除所有现有 Agent 并重新创建，可能需要较长时间。')) return
+    setReinitLoading(true)
+    setError('')
+    setSuccess('')
+    try {
+      const resp = await fetch('/api/v2/reinit', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await resp.json()
+      if (resp.ok) {
+        setSuccess(`重新初始化完成：${data.successCount}/${data.accounts} 个账号成功，删除 ${data.totalDeleted} 个旧 Agent，创建 ${data.totalCreated} 个新 Agent`)
+        loadAccounts()
+        if (selectedAccount) loadGummies(selectedAccount.id)
+        setTimeout(() => setSuccess(''), 8000)
+      } else {
+        setError(data.error || '重新初始化失败')
+      }
+    } catch {
+      setError('网络错误')
+    } finally {
+      setReinitLoading(false)
     }
   }
 
@@ -438,13 +465,22 @@ export default function AdminPage() {
         <div className="bg-zinc-900/50 border border-zinc-800/50 rounded p-3">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs text-zinc-500">全局 System Prompt</span>
-            <button
-              onClick={saveGlobalSettings}
-              disabled={settingsLoading}
-              className="px-2 py-1 bg-zinc-800 hover:bg-zinc-700 rounded text-xs disabled:opacity-50"
-            >
-              {settingsLoading ? '...' : '保存'}
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={reinitAllGummies}
+                disabled={reinitLoading}
+                className="px-2 py-1 bg-orange-900/50 hover:bg-orange-900/70 border border-orange-800/50 rounded text-xs disabled:opacity-50"
+              >
+                {reinitLoading ? '初始化中...' : '重新初始化全部 Agent'}
+              </button>
+              <button
+                onClick={saveGlobalSettings}
+                disabled={settingsLoading}
+                className="px-2 py-1 bg-zinc-800 hover:bg-zinc-700 rounded text-xs disabled:opacity-50"
+              >
+                {settingsLoading ? '...' : '保存'}
+              </button>
+            </div>
           </div>
           <textarea
             value={globalSystemPrompt}

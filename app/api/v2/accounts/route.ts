@@ -4,7 +4,7 @@ import { verifyAdmin } from '@/lib/utils/admin'
 import { getAccounts, createAccount, getGlobalSettings } from '@/lib/db/accounts'
 import { firebaseRefresh } from '@/lib/gumloop/auth'
 import { createGummie, listGummies, deleteGummie } from '@/lib/gumloop/api'
-import { AVAILABLE_MODELS } from '@/lib/utils/model-map'
+import { AVAILABLE_MODELS, mapModel } from '@/lib/utils/model-map'
 import type { ModelGummieMap } from '@/lib/gumloop/types'
 
 const AccountCreateSchema = z.object({
@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
       try {
         const gummie = await createGummie(idToken, userId, {
           name: modelName,
-          modelName,
+          modelName: mapModel(modelName),
           systemPrompt,
         })
         if (gummie) {
