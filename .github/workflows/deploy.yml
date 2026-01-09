@@ -10,9 +10,6 @@ jobs:
   deploy:
     name: Deploy
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-      contents: read
 
     steps:
       - name: Clone repository
@@ -37,17 +34,18 @@ jobs:
           rm -rf node_modules
           find .next -name "*.map" -delete
           find .next -name "*.nft.json" -delete
-          find .next -type f -name "*.js" -size +500k -exec gzip -9 {} \; -exec mv {}.gz {} \; 2>/dev/null || true
           echo "Build size after cleanup:"
           du -sh .next
 
-      - name: Deploy to Deno Deploy
-        uses: denoland/deployctl@v1
+      - name: Install Deno
+        uses: denoland/setup-deno@v2
         with:
-          project: justhil-gl2api
-          entrypoint: jsr:@deno/nextjs-start/v14
-          include: |
-            .next
-            public
-          root: .
+          deno-version: v2.x
+
+      - name: Deploy to Deno Deploy
+        run: |
+          deno install -gArf jsr:@deno/deployctl
+          deployctl deploy --prod --project=justhil-gl2api --include=.next --include=public --entrypoint=jsr:@deno/nextjs-start/v14
+        env:
+          DENO_DEPLOY_TOKEN: ${{ secrets.DENO_DEPLOY_TOKEN }}
 
