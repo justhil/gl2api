@@ -32,21 +32,32 @@ export function convertToolMessages(messages: OpenAIMessage[]): OpenAIMessage[] 
     }
   }
 
-  // 将工具结果添加到对应的用户消息之后
+  // 处理 assistant 消息中的 tool_calls，转换为 XML 格式
   for (let i = 0; i < converted.length; i++) {
     const msg = converted[i]
-    if (msg.role === 'assistant' && Array.isArray(msg.content)) {
-      for (const part of msg.content) {
-        if (
-          typeof part === 'object' &&
-          part?.type === 'tool_call' &&
-          part.id &&
-          toolResultById[part.id]
-        ) {
-          // 将工具结果插入到助手消息之后
-          converted.splice(i + 1, 0, toolResultById[part.id] as OpenAIMessage)
-          i++ // 跳过新插入的消息
-          delete toolResultById[part.id]
+    if (msg.role === 'assistant' && msg.tool_calls?.length) {
+      // 将 tool_calls 转换为 XML 格式的文本
+      const toolUseTexts = msg.tool_calls.map(tc => {
+        const args = tc.function.arguments
+        return `<tool_use id="${tc.id}">\n<name>${tc.function.name}</name>\n<input>${args}</input>\n</tool_use>`
+      })
+
+      // 合并原有 content 和工具调用
+      const contentText = typeof msg.content === 'string' ? msg.content : ''
+      const newContent = [contentText, ...toolUseTexts].filter(Boolean).join('\n')
+
+      converted[i] = {
+        ...msg,
+        content: newContent,
+        tool_calls: undefined, // 移除 tool_calls，已转换为文本
+      }
+
+      // 将对应的工具结果插入到助手消息之后
+      for (const tc of msg.tool_calls) {
+        if (toolResultById[tc.id]) {
+          converted.splice(i + 1, 0, toolResultById[tc.id] as OpenAIMessage)
+          i++
+          delete toolResultById[tc.id]
         }
       }
     }
@@ -62,9 +73,10 @@ export function convertToolMessages(messages: OpenAIMessage[]): OpenAIMessage[] 
 
 // 检测消息列表中是否包含工具消息
 export function hasToolMessages(messages: OpenAIMessage[]): boolean {
-  return messages.some(msg => msg.role === 'tool' || Array.isArray(msg.content) && msg.content.some(part =>
-    typeof part === 'object' && part?.type === 'tool_call'
-  ))
+  return messages.some(msg =>
+    msg.role === 'tool' ||
+    (msg.tool_calls && msg.tool_calls.length > 0)
+  )
 }
 
 // 将 OpenAI 格式的消息和工具转换为包含内嵌工具提示的格式

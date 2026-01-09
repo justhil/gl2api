@@ -29,11 +29,6 @@ const OTHER_MODELS = [
   'o3-deep-research',
   'o4-mini-deep-research',
 
-  // Google Gemini
-  'gemini-3-pro-preview',
-  'gemini-3-flash-preview',
-  'gemini-2.5-pro',
-  'gemini-2.5-flash',
 ] as const
 
 // 对外暴露的模型列表：映射后的 Claude 模型 + 其他模型

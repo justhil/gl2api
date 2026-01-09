@@ -222,28 +222,13 @@ export function extractOpenAIFile(content: unknown): ExtractedFile | null {
   return { base64Data: match[2], mediaType: match[1], filename }
 }
 
-// Gemini API: { inline_data: { mime_type: '...', data: '...' } }
-export function extractGeminiFile(content: unknown): ExtractedFile | null {
-  if (!content || typeof content !== 'object') return null
-  const c = content as Record<string, unknown>
-
-  const inlineData = c.inline_data as Record<string, unknown> | undefined
-  if (!inlineData) return null
-
-  const data = inlineData.data as string | undefined
-  const mimeType = inlineData.mime_type as string | undefined
-  if (!data || !mimeType) return null
-
-  return { base64Data: data, mediaType: mimeType }
-}
 
 export function extractFile(content: unknown): ExtractedFile | null {
   return (
     extractClaudeImage(content) ||
     extractClaudeDocument(content) ||
     extractOpenAIImage(content) ||
-    extractOpenAIFile(content) ||
-    extractGeminiFile(content)
+    extractOpenAIFile(content)
   )
 }
 

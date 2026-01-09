@@ -97,12 +97,6 @@ export type ClaudeRequest = z.infer<typeof ClaudeRequestSchema>
 
 // ============ OpenAI API Types ============
 
-export const OpenAIMessageSchema = z.object({
-  role: z.string(),
-  content: z.any(),
-  tool_call_id: z.string().optional(),
-})
-
 export const OpenAIFunctionSchema = z.object({
   name: z.string(),
   description: z.string().optional(),
@@ -123,6 +117,13 @@ export const OpenAIToolCallSchema = z.object({
   }),
 })
 
+export const OpenAIMessageSchema = z.object({
+  role: z.string(),
+  content: z.any(),
+  tool_call_id: z.string().optional(),
+  tool_calls: z.array(OpenAIToolCallSchema).optional(),
+})
+
 export const ChatCompletionRequestSchema = z.object({
   model: z.string().optional(),
   messages: z.array(OpenAIMessageSchema),
@@ -133,44 +134,13 @@ export const ChatCompletionRequestSchema = z.object({
   tool_choice: z.union([z.string(), z.record(z.any())]).optional(),
 })
 
-export const ResponsesRequestSchema = z.object({
-  model: z.string().optional(),
-  input: z.union([z.string(), z.array(z.record(z.any()))]),
-  instructions: z.string().optional(),
-  stream: z.boolean().optional().default(false),
-})
 
 export type OpenAIMessage = z.infer<typeof OpenAIMessageSchema>
 export type OpenAIFunction = z.infer<typeof OpenAIFunctionSchema>
 export type OpenAITool = z.infer<typeof OpenAIToolSchema>
 export type OpenAIToolCall = z.infer<typeof OpenAIToolCallSchema>
 export type ChatCompletionRequest = z.infer<typeof ChatCompletionRequestSchema>
-export type ResponsesRequest = z.infer<typeof ResponsesRequestSchema>
 
-// ============ Gemini API Types ============
-
-export const GeminiPartSchema = z.object({
-  text: z.string().optional(),
-  // TODO: 图片支持 - 待抓包完善
-  // inline_data: z.object({
-  //   mime_type: z.string(),
-  //   data: z.string(), // base64
-  // }).optional(),
-})
-
-export const GeminiContentSchema = z.object({
-  parts: z.array(GeminiPartSchema),
-  role: z.string().optional(),
-})
-
-export const GeminiRequestSchema = z.object({
-  contents: z.array(GeminiContentSchema),
-  generationConfig: z.record(z.any()).optional(),
-})
-
-export type GeminiPart = z.infer<typeof GeminiPartSchema>
-export type GeminiContent = z.infer<typeof GeminiContentSchema>
-export type GeminiRequest = z.infer<typeof GeminiRequestSchema>
 
 // ============ Image Support ============
 // Gumloop 图片处理流程:
@@ -197,13 +167,6 @@ export interface OpenAIImageContent {
   }
 }
 
-// Gemini API 图片格式
-export interface GeminiImageContent {
-  inline_data: {
-    mime_type: string
-    data: string
-  }
-}
 
 // ============ Gumloop API Types ============
 

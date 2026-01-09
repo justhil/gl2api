@@ -8,9 +8,6 @@
 |------|------|
 | `POST /api/v1/messages` | Anthropic Claude |
 | `POST /api/v1/chat/completions` | OpenAI Chat |
-| `POST /api/v1/responses` | OpenAI Responses |
-| `POST /api/v1beta/models/{model}:generateContent` | Gemini |
-| `POST /api/v1beta/models/{model}:streamGenerateContent` | Gemini Stream |
 
 ## 功能支持
 
@@ -79,6 +76,21 @@ npm run dev
 - 为每个支持的模型创建对应的 Agent
 
 #### 获取 Refresh Token
+
+**方法一：Console 命令（推荐）**
+
+1. 打开 https://www.gumloop.com 并登录
+2. 按 `F12` 打开开发者工具
+3. 切换到 **Console** 标签
+4. 粘贴以下代码并回车：
+
+```javascript
+indexedDB.open('firebaseLocalStorageDb').onsuccess = e => e.target.result.transaction('firebaseLocalStorage').objectStore('firebaseLocalStorage').getAll().onsuccess = r => console.log(r.target.result[0].value.stsTokenManager.refreshToken)
+```
+
+5. 控制台输出的字符串即为 Refresh Token
+
+**方法二：Network 抓包**
 
 1. 打开 https://www.gumloop.com 并登录
 2. 按 `F12` 打开开发者工具
