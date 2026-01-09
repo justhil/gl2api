@@ -161,9 +161,8 @@ export async function POST(req: NextRequest) {
           recordRequest(model, handler.inputTokens, handler.outputTokens).catch(() => {})
         } catch (err) {
           write(`data: ${JSON.stringify({ error: String(err) })}\n\n`)
-        } finally {
-          controller.close()
         }
+        controller.close()
       },
     })
 
