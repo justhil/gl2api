@@ -109,5 +109,5 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ mod
     handler.handleEvent(event)
   }
 
-  return NextResponse.json(buildGeminiResponse(handler.getFullText(), model))
+  return NextResponse.json(buildGeminiResponse(handler.getFullText(), model, handler.getFullReasoning() || undefined))
 }

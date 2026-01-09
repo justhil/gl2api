@@ -136,7 +136,9 @@ export async function POST(req: NextRequest) {
 
           for await (const event of sendChat(gummieId, messages, idToken, chatId)) {
             const ev = handler.handleEvent(event)
-            if (ev.type === 'text_delta' && ev.delta) {
+            if (ev.type === 'reasoning_delta' && ev.delta) {
+              controller.enqueue(encoder.encode(buildOpenAIChunk(streamId, model, { reasoningContent: ev.delta, created })))
+            } else if (ev.type === 'text_delta' && ev.delta) {
               controller.enqueue(encoder.encode(buildOpenAIChunk(streamId, model, { content: ev.delta, created })))
             } else if (ev.type === 'finish') {
               controller.enqueue(encoder.encode(buildOpenAIChunk(streamId, model, { finishReason: 'stop', created })))
@@ -166,6 +168,12 @@ export async function POST(req: NextRequest) {
     handler.handleEvent(event)
   }
 
+  const message: Record<string, unknown> = { role: 'assistant', content: handler.getFullText() }
+  const reasoning = handler.getFullReasoning()
+  if (reasoning) {
+    message.reasoning_content = reasoning
+  }
+
   return NextResponse.json({
     id: streamId,
     object: 'chat.completion',
@@ -174,7 +182,7 @@ export async function POST(req: NextRequest) {
     choices: [
       {
         index: 0,
-        message: { role: 'assistant', content: handler.getFullText() },
+        message,
         finish_reason: 'stop',
       },
     ],

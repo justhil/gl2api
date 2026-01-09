@@ -112,7 +112,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ mod
 
         for await (const event of sendChat(account.gummieId!, messages, idToken, chatId)) {
           const ev = handler.handleEvent(event)
-          if (ev.type === 'text_delta' && ev.delta) {
+          if (ev.type === 'reasoning_delta' && ev.delta) {
+            controller.enqueue(encoder.encode(buildGeminiStreamChunk(ev.delta, true)))
+          } else if (ev.type === 'text_delta' && ev.delta) {
             controller.enqueue(encoder.encode(buildGeminiStreamChunk(ev.delta)))
           }
         }

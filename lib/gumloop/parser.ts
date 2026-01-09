@@ -86,14 +86,16 @@ export function buildOpenAIChunk(
   options: {
     role?: string
     content?: string
+    reasoningContent?: string
     finishReason?: string | null
     created?: number
   } = {}
 ): string {
-  const { role, content, finishReason, created = Math.floor(Date.now() / 1000) } = options
+  const { role, content, reasoningContent, finishReason, created = Math.floor(Date.now() / 1000) } = options
   const delta: Record<string, unknown> = {}
   if (role) delta.role = role
   if (content !== undefined) delta.content = content
+  if (reasoningContent !== undefined) delta.reasoning_content = reasoningContent
 
   return `data: ${JSON.stringify({
     id,
@@ -116,12 +118,19 @@ export function buildOpenAIDone(): string {
 
 // ============ Gemini API ============
 
-export function buildGeminiResponse(text: string, model: string): Record<string, unknown> {
+export function buildGeminiResponse(text: string, model: string, thinking?: string): Record<string, unknown> {
+  const parts: Array<Record<string, unknown>> = []
+
+  if (thinking) {
+    parts.push({ text: thinking, thought: true })
+  }
+  parts.push({ text })
+
   return {
     candidates: [
       {
         content: {
-          parts: [{ text }],
+          parts,
           role: 'model',
         },
         finishReason: 'STOP',
@@ -131,12 +140,16 @@ export function buildGeminiResponse(text: string, model: string): Record<string,
   }
 }
 
-export function buildGeminiStreamChunk(text: string): string {
+export function buildGeminiStreamChunk(text: string, isThought = false): string {
+  const part: Record<string, unknown> = { text }
+  if (isThought) {
+    part.thought = true
+  }
   return JSON.stringify({
     candidates: [
       {
         content: {
-          parts: [{ text }],
+          parts: [part],
           role: 'model',
         },
       },
