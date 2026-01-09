@@ -59,6 +59,11 @@ export class GumloopStreamHandler {
         return { type: 'text_start', index: this.blockIndex }
 
       case 'text-delta':
+        // Claude模型在reasoning后可能不发送text-start，直接发送text-delta
+        if (!this.inText) {
+          this.inText = true
+          this.blockIndex++
+        }
         if (event.delta) {
           this.textBuffer.push(event.delta)
         }
@@ -69,7 +74,8 @@ export class GumloopStreamHandler {
         return { type: 'text_end', index: this.blockIndex }
 
       case 'finish':
-        if (this.finished) return { type: 'ignored' }
+        // 只处理 final: true 的 finish 事件
+        if (this.finished || !event.final) return { type: 'ignored' }
         this.finished = true
         const usage = event.usage || {}
         this.outputTokens = usage.output_tokens || Math.ceil(this.getFullText().length / 4)
