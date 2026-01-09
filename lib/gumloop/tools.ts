@@ -34,7 +34,11 @@ You can use multiple tools in one response. After outputting tool_use blocks, wa
 
 // ============ Tool Call Parsing ============
 
-const TOOL_USE_PATTERN = /<tool_use(?:\s+id="([^"]*)")?>\s*<name>([^<]+)<\/name>\s*<input>(.*?)<\/input>\s*<\/tool_use>/gs
+// 格式1: <tool_use><name>xxx</name><input>{...}</input></tool_use>
+const TOOL_USE_PATTERN_XML = /<tool_use(?:\s+id="([^"]*)")?>\s*<name>([^<]+)<\/name>\s*<input>(.*?)<\/input>\s*<\/tool_use>/gs
+
+// 格式2: <tool_use>{"name": "xxx", "input": {...}}</tool_use>
+const TOOL_USE_PATTERN_JSON = /<tool_use>\s*(\{[\s\S]*?\})\s*<\/tool_use>/g
 
 export interface ToolUseBlock {
   type: 'tool_use'
@@ -54,8 +58,10 @@ function generateToolId(): string {
 
 export function parseToolCalls(text: string): { remainingText: string; toolUses: ToolUseBlock[] } {
   const toolUses: ToolUseBlock[] = []
+  let remainingText = text
 
-  for (const match of text.matchAll(TOOL_USE_PATTERN)) {
+  // 解析格式1: XML子标签格式
+  for (const match of text.matchAll(TOOL_USE_PATTERN_XML)) {
     const toolId = match[1] || generateToolId()
     const name = match[2].trim()
     const inputStr = match[3].trim()
@@ -69,8 +75,28 @@ export function parseToolCalls(text: string): { remainingText: string; toolUses:
 
     toolUses.push({ type: 'tool_use', id: toolId, name, input })
   }
+  remainingText = remainingText.replace(TOOL_USE_PATTERN_XML, '')
 
-  const remainingText = text.replace(TOOL_USE_PATTERN, '').trim()
+  // 解析格式2: JSON对象格式
+  for (const match of remainingText.matchAll(TOOL_USE_PATTERN_JSON)) {
+    const jsonStr = match[1].trim()
+
+    try {
+      const parsed = JSON.parse(jsonStr)
+      if (parsed.name) {
+        toolUses.push({
+          type: 'tool_use',
+          id: parsed.id || generateToolId(),
+          name: parsed.name,
+          input: parsed.input || {},
+        })
+      }
+    } catch {
+      // 忽略解析失败的JSON
+    }
+  }
+  remainingText = remainingText.replace(TOOL_USE_PATTERN_JSON, '').trim()
+
   return { remainingText, toolUses }
 }
 
