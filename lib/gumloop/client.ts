@@ -126,12 +126,10 @@ export async function* sendChat(
 
   const ws = new WS(WS_URL)
 
-  // 使用回调直接 yield，减少队列延迟
-  let resolver: ((value: IteratorResult<GumloopEvent>) => void) | null = null
-  let rejecter: ((error: Error) => void) | null = null
   const pending: GumloopEvent[] = []
-  let done = false
+  let resolver: ((event: GumloopEvent | null) => void) | null = null
   let error: Error | null = null
+  let closed = false
 
   ws.onopen = () => {
     ws.send(JSON.stringify(payload))
@@ -143,14 +141,15 @@ export async function* sendChat(
       const parsed = JSON.parse(data) as GumloopEvent
 
       if (resolver) {
-        resolver({ value: parsed, done: false })
+        const r = resolver
         resolver = null
+        r(parsed)
       } else {
         pending.push(parsed)
       }
 
       if (parsed.type === 'finish' && parsed.final !== false) {
-        done = true
+        closed = true
         ws.close()
       }
     } catch {
@@ -160,43 +159,54 @@ export async function* sendChat(
 
   ws.onerror = (err: Event) => {
     error = err instanceof Error ? err : new Error('WebSocket error')
-    if (rejecter) {
-      rejecter(error)
-      rejecter = null
+    closed = true
+    if (resolver) {
+      const r = resolver
+      resolver = null
+      r(null)
     }
   }
 
   ws.onclose = () => {
-    done = true
+    closed = true
     if (resolver) {
-      resolver({ value: undefined as unknown as GumloopEvent, done: true })
+      const r = resolver
       resolver = null
+      r(null)
     }
   }
 
-  while (true) {
-    if (error) throw error
+  try {
+    while (true) {
+      if (error) throw error
 
-    if (pending.length > 0) {
-      const event = pending.shift()!
+      // 先处理 pending 队列
+      if (pending.length > 0) {
+        const event = pending.shift()!
+        yield event
+        if (event.type === 'finish' && event.final !== false) {
+          return
+        }
+        continue
+      }
+
+      // 如果已关闭且队列为空，退出
+      if (closed) return
+
+      // 等待新事件
+      const event = await new Promise<GumloopEvent | null>((resolve) => {
+        resolver = resolve
+      })
+
+      if (event === null) return
       yield event
       if (event.type === 'finish' && event.final !== false) {
-        break
+        return
       }
-      continue
     }
-
-    if (done) break
-
-    const result = await new Promise<IteratorResult<GumloopEvent>>((resolve, reject) => {
-      resolver = resolve
-      rejecter = reject
-    })
-
-    if (result.done) break
-    yield result.value
-    if (result.value.type === 'finish' && result.value.final !== false) {
-      break
+  } finally {
+    if (!closed) {
+      ws.close()
     }
   }
 }
