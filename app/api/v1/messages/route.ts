@@ -4,7 +4,7 @@ import { verifyApiKey } from '@/lib/utils/api-key'
 import { mapModel } from '@/lib/utils/model-map'
 import { getEnabledAccount, getGummieIdForModel } from '@/lib/db/accounts'
 import { getToken } from '@/lib/cache/token'
-import { sendChat, updateGummieConfig, type Message } from '@/lib/gumloop/client'
+import { sendChat, updateGummieConfig, generateChatId, type Message } from '@/lib/gumloop/client'
 import { GumloopStreamHandler } from '@/lib/gumloop/handler'
 import {
   buildMessageStart,
@@ -97,6 +97,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Update gummie config if needed
+  const chatId = generateChatId()
   if (data.tools || data.system) {
     try {
       await updateGummieConfig(gummieId, userId, idToken, {
@@ -115,14 +116,14 @@ export async function POST(req: NextRequest) {
         data.tools,
         systemText
       )
-      const messages = await processImagesInMessages(convertedMessages, gummieId, userId, idToken)
-      return processChat(gummieId, messages, model, data, hasTools, idToken)
+      const messages = await processImagesInMessages(convertedMessages, chatId, userId, idToken)
+      return processChat(gummieId, messages, model, data, hasTools, idToken, chatId)
     }
   }
 
   const convertedMessages = convertMessagesSimple(data.messages.map((m) => ({ role: m.role, content: m.content })))
-  const messages = await processImagesInMessages(convertedMessages, gummieId, userId, idToken)
-  return processChat(gummieId, messages, model, data, hasTools, idToken)
+  const messages = await processImagesInMessages(convertedMessages, chatId, userId, idToken)
+  return processChat(gummieId, messages, model, data, hasTools, idToken, chatId)
 }
 
 async function processImagesInMessages(
@@ -160,7 +161,8 @@ async function processChat(
   model: string,
   data: { stream: boolean; thinking?: Record<string, unknown> },
   hasTools: boolean,
-  idToken: string
+  idToken: string,
+  chatId: string
 ) {
   const msgId = generateMsgId()
   const thinkingEnabled = data.thinking?.type === 'enabled'
@@ -179,7 +181,7 @@ async function processChat(
           let inText = false
           let fullText = ''
 
-          for await (const event of sendChat(gummieId, messages, idToken)) {
+          for await (const event of sendChat(gummieId, messages, idToken, chatId)) {
             const ev = handler.handleEvent(event)
 
             if (ev.type === 'reasoning_start' && thinkingEnabled) {
@@ -261,7 +263,7 @@ async function processChat(
 
   // Non-streaming
   const handler = new GumloopStreamHandler(model)
-  for await (const event of sendChat(gummieId, messages, idToken)) {
+  for await (const event of sendChat(gummieId, messages, idToken, chatId)) {
     handler.handleEvent(event)
   }
 

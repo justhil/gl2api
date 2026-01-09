@@ -5,7 +5,7 @@ import type { ImagePart } from './image'
 const WS_URL = 'wss://ws.gumloop.com/ws/gummies'
 const API_BASE = 'https://api.gumloop.com'
 
-function generateId(len = 22): string {
+export function generateChatId(len = 22): string {
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
   let result = ''
   for (let i = 0; i < len; i++) {
@@ -23,7 +23,7 @@ export interface Message {
 
 function formatMessages(messages: Message[]): GumloopMessage[] {
   return messages.map((msg) => {
-    const msgId = msg.id || `msg_${generateId(24)}`
+    const msgId = msg.id || `msg_${generateChatId(24)}`
     const timestamp = new Date().toISOString()
 
     if (msg.role === 'assistant') {
@@ -111,7 +111,7 @@ export async function* sendChat(
   idToken: string,
   interactionId?: string
 ): AsyncGenerator<GumloopEvent> {
-  const chatId = interactionId || generateId()
+  const chatId = interactionId || generateChatId()
   const gumloopMsgs = formatMessages(messages)
 
   const payload = {

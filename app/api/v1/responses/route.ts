@@ -4,7 +4,7 @@ import { verifyApiKey } from '@/lib/utils/api-key'
 import { mapModel } from '@/lib/utils/model-map'
 import { getEnabledAccount } from '@/lib/db/accounts'
 import { getToken } from '@/lib/cache/token'
-import { sendChat } from '@/lib/gumloop/client'
+import { sendChat, generateChatId } from '@/lib/gumloop/client'
 import { GumloopStreamHandler } from '@/lib/gumloop/handler'
 
 export const runtime = 'nodejs'
@@ -63,6 +63,7 @@ export async function POST(req: NextRequest) {
 
   const model = mapModel(data.model || 'gpt-4')
   const respId = generateId()
+  const chatId = generateChatId()
 
   if (data.stream) {
     const encoder = new TextEncoder()
@@ -71,7 +72,7 @@ export async function POST(req: NextRequest) {
         try {
           const handler = new GumloopStreamHandler(model)
 
-          for await (const event of sendChat(account.gummieId!, messages, idToken)) {
+          for await (const event of sendChat(account.gummieId!, messages, idToken, chatId)) {
             const ev = handler.handleEvent(event)
             if (ev.type === 'text_delta' && ev.delta) {
               controller.enqueue(
@@ -107,7 +108,7 @@ export async function POST(req: NextRequest) {
   }
 
   const handler = new GumloopStreamHandler(model)
-  for await (const event of sendChat(account.gummieId, messages, idToken)) {
+  for await (const event of sendChat(account.gummieId, messages, idToken, chatId)) {
     handler.handleEvent(event)
   }
 

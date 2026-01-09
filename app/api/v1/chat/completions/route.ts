@@ -4,7 +4,7 @@ import { verifyApiKey } from '@/lib/utils/api-key'
 import { mapModel } from '@/lib/utils/model-map'
 import { getEnabledAccount, getGummieIdForModel } from '@/lib/db/accounts'
 import { getToken } from '@/lib/cache/token'
-import { sendChat, type Message } from '@/lib/gumloop/client'
+import { sendChat, generateChatId, type Message } from '@/lib/gumloop/client'
 import { GumloopStreamHandler } from '@/lib/gumloop/handler'
 import { buildOpenAIChunk, buildOpenAIDone } from '@/lib/gumloop/parser'
 import { extractOpenAIImage, uploadImage, createImagePart, type ImagePart } from '@/lib/gumloop/image'
@@ -121,7 +121,8 @@ export async function POST(req: NextRequest) {
   }
 
   const extractedMessages = convertMessages(data.messages)
-  const messages = await processImagesInMessages(extractedMessages, gummieId, userId, idToken)
+  const chatId = generateChatId()
+  const messages = await processImagesInMessages(extractedMessages, chatId, userId, idToken)
   const streamId = generateId()
   const created = Math.floor(Date.now() / 1000)
 
@@ -133,7 +134,7 @@ export async function POST(req: NextRequest) {
           const handler = new GumloopStreamHandler(model)
           controller.enqueue(encoder.encode(buildOpenAIChunk(streamId, model, { role: 'assistant', created })))
 
-          for await (const event of sendChat(gummieId, messages, idToken)) {
+          for await (const event of sendChat(gummieId, messages, idToken, chatId)) {
             const ev = handler.handleEvent(event)
             if (ev.type === 'text_delta' && ev.delta) {
               controller.enqueue(encoder.encode(buildOpenAIChunk(streamId, model, { content: ev.delta, created })))
@@ -161,7 +162,7 @@ export async function POST(req: NextRequest) {
   }
 
   const handler = new GumloopStreamHandler(model)
-  for await (const event of sendChat(gummieId, messages, idToken)) {
+  for await (const event of sendChat(gummieId, messages, idToken, chatId)) {
     handler.handleEvent(event)
   }
 
