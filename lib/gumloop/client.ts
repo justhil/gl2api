@@ -135,8 +135,6 @@ export async function* sendChat(
     ws.send(JSON.stringify(payload))
   }
 
-  let finishTimeout: ReturnType<typeof setTimeout> | null = null
-
   ws.onmessage = (event: MessageEvent) => {
     try {
       const data = typeof event.data === 'string' ? event.data : event.data.toString()
@@ -151,20 +149,8 @@ export async function* sendChat(
       }
 
       if (parsed.type === 'finish') {
-        if (parsed.final === false) {
-          // opus4.5 sends final=false first, then final=true
-          // Set timeout in case final=true never arrives
-          finishTimeout = setTimeout(() => {
-            if (!closed) {
-              closed = true
-              ws.close()
-            }
-          }, 3000)
-        } else {
-          if (finishTimeout) clearTimeout(finishTimeout)
-          closed = true
-          ws.close()
-        }
+        closed = true
+        ws.close()
       }
     } catch {
       // ignore parse errors
@@ -172,7 +158,6 @@ export async function* sendChat(
   }
 
   ws.onerror = (err: Event) => {
-    if (finishTimeout) clearTimeout(finishTimeout)
     error = err instanceof Error ? err : new Error('WebSocket error')
     closed = true
     if (resolver) {
@@ -183,7 +168,6 @@ export async function* sendChat(
   }
 
   ws.onclose = () => {
-    if (finishTimeout) clearTimeout(finishTimeout)
     closed = true
     if (resolver) {
       const r = resolver
