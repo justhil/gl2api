@@ -8,6 +8,7 @@ import { sendChat, generateChatId, type Message } from '@/lib/gumloop/client'
 import { GumloopStreamHandler } from '@/lib/gumloop/handler'
 import { buildOpenAIChunk, buildOpenAIDone } from '@/lib/gumloop/parser'
 import { extractOpenAIImage, extractOpenAIFile, uploadFile, createFilePart } from '@/lib/gumloop/file'
+import { recordRequest } from '@/lib/db/stats'
 
 export const runtime = 'nodejs'
 
@@ -153,6 +154,7 @@ export async function POST(req: NextRequest) {
             controller.enqueue(encoder.encode(buildOpenAIChunk(streamId, model, { finishReason: 'stop', created })))
             controller.enqueue(encoder.encode(buildOpenAIDone()))
           }
+          recordRequest(model, handler.inputTokens, handler.outputTokens).catch(() => {})
         } catch (err) {
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: String(err) })}\n\n`))
         } finally {
@@ -174,6 +176,8 @@ export async function POST(req: NextRequest) {
   for await (const event of sendChat(gummieId, messages, idToken, chatId)) {
     handler.handleEvent(event)
   }
+
+  recordRequest(model, handler.inputTokens, handler.outputTokens).catch(() => {})
 
   const message: Record<string, unknown> = { role: 'assistant', content: handler.getFullText() }
   const reasoning = handler.getFullReasoning()

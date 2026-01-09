@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { verifyAdmin } from '@/lib/utils/admin'
 import { getAccounts, createAccount, getGlobalSettings } from '@/lib/db/accounts'
 import { firebaseRefresh } from '@/lib/gumloop/auth'
-import { createGummie, listGummies } from '@/lib/gumloop/api'
+import { createGummie, listGummies, deleteGummie } from '@/lib/gumloop/api'
 import { AVAILABLE_MODELS } from '@/lib/utils/model-map'
 import type { ModelGummieMap } from '@/lib/gumloop/types'
 
@@ -65,22 +65,20 @@ export async function POST(req: NextRequest) {
   // Build gummies map
   const gummies: ModelGummieMap = {}
   let defaultGummieId: string | undefined
+  let deletedCount = 0
 
   if (shouldCreateGummies) {
-    // Get existing gummies
+    // Delete all existing gummies first
     const existingGummies = await listGummies(idToken, userId)
-    const existingByModel = new Map(existingGummies.map(g => [g.model_name, g.gummie_id]))
+    for (const g of existingGummies) {
+      try {
+        await deleteGummie(g.gummie_id, idToken, userId)
+        deletedCount++
+      } catch {}
+    }
 
     // Create gummies for each model
     for (const modelName of AVAILABLE_MODELS) {
-      // Check if gummie already exists for this model
-      if (existingByModel.has(modelName)) {
-        gummies[modelName] = existingByModel.get(modelName)!
-        if (!defaultGummieId) defaultGummieId = gummies[modelName]
-        continue
-      }
-
-      // Create new gummie
       try {
         const gummie = await createGummie(idToken, userId, {
           name: modelName,
@@ -109,5 +107,6 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     ...account,
     gummiesCreated: Object.keys(gummies).length,
+    gummiesDeleted: deletedCount,
   })
 }

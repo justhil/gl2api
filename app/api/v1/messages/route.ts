@@ -25,6 +25,7 @@ import {
   type ConvertedMessage,
 } from '@/lib/gumloop/tools'
 import { uploadFile, createFilePart } from '@/lib/gumloop/file'
+import { recordRequest } from '@/lib/db/stats'
 
 export const runtime = 'nodejs'
 
@@ -304,6 +305,7 @@ async function processChat(
             controller.enqueue(encoder.encode(buildMessageDelta(0, 'end_turn')))
             controller.enqueue(encoder.encode(buildMessageStop()))
           }
+          recordRequest(model, handler.inputTokens, handler.outputTokens).catch(() => {})
         } catch (err) {
           controller.enqueue(encoder.encode(`event: error\ndata: ${JSON.stringify({ error: String(err) })}\n\n`))
         } finally {
@@ -326,6 +328,8 @@ async function processChat(
   for await (const event of sendChat(gummieId, messages, idToken, chatId)) {
     handler.handleEvent(event)
   }
+
+  recordRequest(model, handler.inputTokens, handler.outputTokens).catch(() => {})
 
   const fullText = handler.getFullText()
   const content: Array<Record<string, unknown>> = []

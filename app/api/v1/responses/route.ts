@@ -6,6 +6,7 @@ import { getEnabledAccount } from '@/lib/db/accounts'
 import { getToken } from '@/lib/cache/token'
 import { sendChat, generateChatId } from '@/lib/gumloop/client'
 import { GumloopStreamHandler } from '@/lib/gumloop/handler'
+import { recordRequest } from '@/lib/db/stats'
 
 export const runtime = 'nodejs'
 
@@ -100,6 +101,7 @@ export async function POST(req: NextRequest) {
               )
             )
           }
+          recordRequest(model, handler.inputTokens, handler.outputTokens).catch(() => {})
         } catch (err) {
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: String(err) })}\n\n`))
         } finally {
@@ -121,6 +123,8 @@ export async function POST(req: NextRequest) {
   for await (const event of sendChat(account.gummieId, messages, idToken, chatId)) {
     handler.handleEvent(event)
   }
+
+  recordRequest(model, handler.inputTokens, handler.outputTokens).catch(() => {})
 
   return NextResponse.json({
     id: respId,
