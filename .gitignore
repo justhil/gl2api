@@ -1,0 +1,24 @@
+# Environment
+.env
+.env.local
+
+# Dependencies
+node_modules
+
+# Build
+.next
+.vercel
+
+# Claude
+.claude/
+
+# Reference files
+参考/
+
+# Documentation (Chinese)
+*.md
+!README.md
+
+# Windows
+nul
+Thumbs.db
