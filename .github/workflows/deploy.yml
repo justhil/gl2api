@@ -45,5 +45,5 @@ jobs:
           DENO_DEPLOY_TOKEN: ${{ secrets.DENO_DEPLOY_TOKEN }}
         run: |
           deno install -gArf jsr:@deno/deployctl
-          deployctl deploy --project=justhil-gl2api --include=.next --include=public --entrypoint=jsr:@deno/nextjs-start/v14 --token="$DENO_DEPLOY_TOKEN"
+          deployctl deploy --prod --project=justhil-gl2api --include=.next --include=public --entrypoint=jsr:@deno/nextjs-start/v14 --token="$DENO_DEPLOY_TOKEN"
 
