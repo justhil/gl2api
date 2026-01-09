@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
   // Update gummie config if needed
   if (data.tools || data.system) {
     try {
-      await updateGummieConfig(gummieId, userId, {
+      await updateGummieConfig(gummieId, userId, idToken, {
         systemPrompt: systemText,
         tools: data.tools?.map((t) => ({
           name: t.name,

@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
 
     try {
       const { idToken, userId } = await getToken(account.id, account.refreshToken)
-      await updateGummieConfig(account.gummieId, userId, { systemPrompt })
+      await updateGummieConfig(account.gummieId, userId, idToken, { systemPrompt })
       results.push({ accountId: account.id, gummieId: account.gummieId, success: true })
     } catch (err) {
       results.push({ accountId: account.id, gummieId: account.gummieId, success: false, error: String(err) })

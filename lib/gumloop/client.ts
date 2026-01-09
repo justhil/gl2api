@@ -46,6 +46,7 @@ export interface GumloopTool {
 export async function updateGummieConfig(
   gummieId: string,
   userId: string,
+  idToken: string,
   options: {
     systemPrompt?: string
     tools?: GumloopTool[]
@@ -62,8 +63,11 @@ export async function updateGummieConfig(
   const resp = await fetch(`${API_BASE}/gummies/${gummieId}`, {
     method: 'PATCH',
     headers: {
+      'Authorization': `Bearer ${idToken}`,
       'x-auth-key': userId,
       'Content-Type': 'application/json',
+      'Referer': 'https://www.gumloop.com/',
+      'Origin': 'https://www.gumloop.com',
     },
     body: JSON.stringify(payload),
   })
