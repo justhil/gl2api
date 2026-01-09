@@ -78,9 +78,10 @@ export async function uploadFile(
   idToken: string,
   originalFilename?: string
 ): Promise<UploadedFile> {
+  // 使用原始文件名，如果没有则生成默认名称
   const ext = getExtension(mediaType, originalFilename)
-  const prefix = getFilePrefix(mediaType)
-  const filename = `custom_agent_interactions/${chatId}/${prefix}_${Date.now()}.${ext}`
+  const baseName = originalFilename || `${getFilePrefix(mediaType)}_${Date.now()}.${ext}`
+  const filename = `custom_agent_interactions/${chatId}/${baseName}`
 
   const formData = new FormData()
   const binaryData = base64ToUint8Array(base64Data)
