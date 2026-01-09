@@ -31,7 +31,7 @@ const OTHER_MODELS = [
 
   // Google Gemini
   'gemini-3-pro-preview',
-  'gemini-3-flash',
+  'gemini-3-flash-preview',
   'gemini-2.5-pro',
   'gemini-2.5-flash',
 ] as const
