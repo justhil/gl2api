@@ -1,14 +1,14 @@
-// Gumloop 支持的模型列表
+// Gumloop 支持的模型列表 (model_name)
 
 export const AVAILABLE_MODELS = [
   // Anthropic Claude
-  'claude-4.5-opus',
-  'claude-4.1-opus',
-  'claude-4-opus',
-  'claude-4.5-sonnet',
-  'claude-4-sonnet',
-  'claude-3.7-sonnet',
-  'claude-4.5-haiku',
+  'claude-opus-4-5',      // Claude 4.5 Opus
+  'claude-opus-4-1',      // Claude 4.1 Opus
+  'claude-opus-4-0',      // Claude 4 Opus
+  'claude-sonnet-4-5',    // Claude 4.5 Sonnet
+  'claude-sonnet-4-0',    // Claude 4 Sonnet
+  'claude-3-7-sonnet-latest', // Claude 3.7 Sonnet
+  'claude-haiku-4-5',     // Claude 4.5 Haiku
 
   // OpenAI GPT
   'gpt-4.1',
@@ -27,7 +27,7 @@ export const AVAILABLE_MODELS = [
   'o4-mini-deep-research',
 
   // Google Gemini
-  'gemini-3-pro',
+  'gemini-3-pro-preview', // Gemini 3 Pro
   'gemini-3-flash',
   'gemini-2.5-pro',
   'gemini-2.5-flash',
