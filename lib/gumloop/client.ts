@@ -126,17 +126,12 @@ export async function* sendChat(
 
   const ws = new WS(WS_URL)
 
-  type QueueItem = { type: 'event'; event: GumloopEvent } | { type: 'done' } | { type: 'error'; error: Error }
-  const queue: QueueItem[] = []
-  let resolve: (() => void) | null = null
-
-  const push = (item: QueueItem) => {
-    queue.push(item)
-    if (resolve) {
-      resolve()
-      resolve = null
-    }
-  }
+  // 使用回调直接 yield，减少队列延迟
+  let resolver: ((value: IteratorResult<GumloopEvent>) => void) | null = null
+  let rejecter: ((error: Error) => void) | null = null
+  const pending: GumloopEvent[] = []
+  let done = false
+  let error: Error | null = null
 
   ws.onopen = () => {
     ws.send(JSON.stringify(payload))
@@ -146,8 +141,16 @@ export async function* sendChat(
     try {
       const data = typeof event.data === 'string' ? event.data : event.data.toString()
       const parsed = JSON.parse(data) as GumloopEvent
-      push({ type: 'event', event: parsed })
+
+      if (resolver) {
+        resolver({ value: parsed, done: false })
+        resolver = null
+      } else {
+        pending.push(parsed)
+      }
+
       if (parsed.type === 'finish' && parsed.final !== false) {
+        done = true
         ws.close()
       }
     } catch {
@@ -156,25 +159,43 @@ export async function* sendChat(
   }
 
   ws.onerror = (err: Event) => {
-    push({ type: 'error', error: err instanceof Error ? err : new Error(String(err)) })
+    error = err instanceof Error ? err : new Error('WebSocket error')
+    if (rejecter) {
+      rejecter(error)
+      rejecter = null
+    }
   }
 
   ws.onclose = () => {
-    push({ type: 'done' })
+    done = true
+    if (resolver) {
+      resolver({ value: undefined as unknown as GumloopEvent, done: true })
+      resolver = null
+    }
   }
 
   while (true) {
-    while (queue.length === 0) {
-      await new Promise<void>((r) => { resolve = r })
+    if (error) throw error
+
+    if (pending.length > 0) {
+      const event = pending.shift()!
+      yield event
+      if (event.type === 'finish' && event.final !== false) {
+        break
+      }
+      continue
     }
 
-    const item = queue.shift()!
-    if (item.type === 'error') throw item.error
-    if (item.type === 'done') {
-      break
-    }
-    yield item.event
-    if (item.event.type === 'finish' && item.event.final !== false) {
+    if (done) break
+
+    const result = await new Promise<IteratorResult<GumloopEvent>>((resolve, reject) => {
+      resolver = resolve
+      rejecter = reject
+    })
+
+    if (result.done) break
+    yield result.value
+    if (result.value.type === 'finish' && result.value.final !== false) {
       break
     }
   }

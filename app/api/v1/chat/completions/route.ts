@@ -12,6 +12,9 @@ import { recordRequest } from '@/lib/db/stats'
 
 export const runtime = 'nodejs'
 
+// 复用 TextEncoder 减少 GC
+const encoder = new TextEncoder()
+
 function generateId(): string {
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
   let result = 'chatcmpl-'
@@ -130,33 +133,34 @@ export async function POST(req: NextRequest) {
   const created = Math.floor(Date.now() / 1000)
 
   if (data.stream) {
-    const encoder = new TextEncoder()
     const stream = new ReadableStream({
       async start(controller) {
+        const handler = new GumloopStreamHandler(model)
+        const write = (s: string) => controller.enqueue(encoder.encode(s))
+
         try {
-          const handler = new GumloopStreamHandler(model)
-          controller.enqueue(encoder.encode(buildOpenAIChunk(streamId, model, { role: 'assistant', created })))
+          write(buildOpenAIChunk(streamId, model, { role: 'assistant', created }))
 
           for await (const event of sendChat(gummieId, messages, idToken, chatId)) {
             const ev = handler.handleEvent(event)
             if (ev.type === 'reasoning_delta' && ev.delta) {
-              controller.enqueue(encoder.encode(buildOpenAIChunk(streamId, model, { reasoningContent: ev.delta, created })))
+              write(buildOpenAIChunk(streamId, model, { reasoningContent: ev.delta, created }))
             } else if (ev.type === 'text_delta' && ev.delta) {
-              controller.enqueue(encoder.encode(buildOpenAIChunk(streamId, model, { content: ev.delta, created })))
+              write(buildOpenAIChunk(streamId, model, { content: ev.delta, created }))
             } else if (ev.type === 'finish') {
-              controller.enqueue(encoder.encode(buildOpenAIChunk(streamId, model, { finishReason: 'stop', created })))
-              controller.enqueue(encoder.encode(buildOpenAIDone()))
+              write(buildOpenAIChunk(streamId, model, { finishReason: 'stop', created }))
+              write(buildOpenAIDone())
               break
             }
           }
-          // WebSocket 可能在未发送 finish 事件时断开，确保客户端收到结束信号
+
           if (!handler.finished) {
-            controller.enqueue(encoder.encode(buildOpenAIChunk(streamId, model, { finishReason: 'stop', created })))
-            controller.enqueue(encoder.encode(buildOpenAIDone()))
+            write(buildOpenAIChunk(streamId, model, { finishReason: 'stop', created }))
+            write(buildOpenAIDone())
           }
           recordRequest(model, handler.inputTokens, handler.outputTokens).catch(() => {})
         } catch (err) {
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: String(err) })}\n\n`))
+          write(`data: ${JSON.stringify({ error: String(err) })}\n\n`)
         } finally {
           controller.close()
         }

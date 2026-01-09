@@ -29,6 +29,9 @@ import { recordRequest } from '@/lib/db/stats'
 
 export const runtime = 'nodejs'
 
+// 复用 TextEncoder 减少 GC
+const encoder = new TextEncoder()
+
 function generateMsgId(): string {
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
   let result = 'msg_'
@@ -152,13 +155,14 @@ async function processChat(
   const thinkingEnabled = data.thinking?.type === 'enabled'
 
   if (data.stream) {
-    const encoder = new TextEncoder()
     const stream = new ReadableStream({
       async start(controller) {
+        const handler = new GumloopStreamHandler(model)
+        const write = (s: string) => controller.enqueue(encoder.encode(s))
+
         try {
-          const handler = new GumloopStreamHandler(model)
-          controller.enqueue(encoder.encode(buildMessageStart(msgId, model, 0)))
-          controller.enqueue(encoder.encode(buildPing()))
+          write(buildMessageStart(msgId, model, 0))
+          write(buildPing())
 
           let blockIdx = 0
           let inThinking = false
@@ -172,104 +176,95 @@ async function processChat(
             const ev = handler.handleEvent(event)
 
             if (ev.type === 'reasoning_start' && thinkingEnabled) {
-              controller.enqueue(encoder.encode(buildContentBlockStart(blockIdx, 'thinking')))
+              write(buildContentBlockStart(blockIdx, 'thinking'))
               inThinking = true
             } else if (ev.type === 'reasoning_delta' && ev.delta && thinkingEnabled) {
               if (!inThinking) {
-                controller.enqueue(encoder.encode(buildContentBlockStart(blockIdx, 'thinking')))
+                write(buildContentBlockStart(blockIdx, 'thinking'))
                 inThinking = true
               }
-              controller.enqueue(encoder.encode(buildContentBlockDelta(blockIdx, ev.delta, 'thinking_delta', 'thinking')))
+              write(buildContentBlockDelta(blockIdx, ev.delta, 'thinking_delta', 'thinking'))
             } else if (ev.type === 'reasoning_end' && thinkingEnabled) {
               if (inThinking) {
-                controller.enqueue(encoder.encode(buildContentBlockStop(blockIdx)))
+                write(buildContentBlockStop(blockIdx))
                 blockIdx++
                 inThinking = false
               }
             } else if (ev.type === 'text_start') {
               if (!hasTools) {
-                controller.enqueue(encoder.encode(buildContentBlockStart(blockIdx, 'text')))
+                write(buildContentBlockStart(blockIdx, 'text'))
                 inText = true
               }
             } else if (ev.type === 'text_delta' && ev.delta) {
               fullText += ev.delta
 
               if (hasTools) {
-                // 缓冲文本，检测并过滤 <tool_use> 块
                 textBuffer += ev.delta
 
-                // 检测是否进入 <tool_use> 块
                 const toolUseStart = textBuffer.indexOf('<tool_use')
                 if (toolUseStart !== -1 && !inToolUseXml) {
-                  // 输出 <tool_use> 之前的文本
                   const beforeToolUse = textBuffer.substring(0, toolUseStart)
                   if (beforeToolUse) {
                     if (!inText) {
-                      controller.enqueue(encoder.encode(buildContentBlockStart(blockIdx, 'text')))
+                      write(buildContentBlockStart(blockIdx, 'text'))
                       inText = true
                     }
-                    controller.enqueue(encoder.encode(buildContentBlockDelta(blockIdx, beforeToolUse)))
+                    write(buildContentBlockDelta(blockIdx, beforeToolUse))
                   }
                   textBuffer = textBuffer.substring(toolUseStart)
                   inToolUseXml = true
                 }
 
-                // 检测 </tool_use> 结束
                 if (inToolUseXml) {
                   const toolUseEnd = textBuffer.indexOf('</tool_use>')
                   if (toolUseEnd !== -1) {
-                    // 跳过整个 tool_use 块
                     textBuffer = textBuffer.substring(toolUseEnd + '</tool_use>'.length)
                     inToolUseXml = false
                   }
                 }
 
-                // 如果不在 tool_use 块中，输出安全的文本
                 if (!inToolUseXml && textBuffer) {
-                  // 保留可能是 <tool_use 开始的部分
                   const safeEnd = textBuffer.lastIndexOf('<')
                   if (safeEnd > 0) {
                     const safeText = textBuffer.substring(0, safeEnd)
                     if (safeText) {
                       if (!inText) {
-                        controller.enqueue(encoder.encode(buildContentBlockStart(blockIdx, 'text')))
+                        write(buildContentBlockStart(blockIdx, 'text'))
                         inText = true
                       }
-                      controller.enqueue(encoder.encode(buildContentBlockDelta(blockIdx, safeText)))
+                      write(buildContentBlockDelta(blockIdx, safeText))
                     }
                     textBuffer = textBuffer.substring(safeEnd)
                   }
                 }
               } else {
-                // 没有 tools，直接输出
                 if (!inText) {
-                  controller.enqueue(encoder.encode(buildContentBlockStart(blockIdx, 'text')))
+                  write(buildContentBlockStart(blockIdx, 'text'))
                   inText = true
                 }
-                controller.enqueue(encoder.encode(buildContentBlockDelta(blockIdx, ev.delta)))
+                write(buildContentBlockDelta(blockIdx, ev.delta))
               }
             } else if (ev.type === 'text_end') {
-              // 输出剩余缓冲区（过滤掉 tool_use）
               if (hasTools && textBuffer && !inToolUseXml) {
                 if (!inText) {
-                  controller.enqueue(encoder.encode(buildContentBlockStart(blockIdx, 'text')))
+                  write(buildContentBlockStart(blockIdx, 'text'))
                   inText = true
                 }
-                controller.enqueue(encoder.encode(buildContentBlockDelta(blockIdx, textBuffer)))
+                write(buildContentBlockDelta(blockIdx, textBuffer))
                 textBuffer = ''
               }
               if (inText) {
-                controller.enqueue(encoder.encode(buildContentBlockStop(blockIdx)))
+                write(buildContentBlockStop(blockIdx))
                 blockIdx++
                 inText = false
               }
             } else if (ev.type === 'finish') {
               if (inThinking) {
-                controller.enqueue(encoder.encode(buildContentBlockStop(blockIdx)))
+                write(buildContentBlockStop(blockIdx))
                 blockIdx++
               }
               if (inText) {
-                controller.enqueue(encoder.encode(buildContentBlockStop(blockIdx)))
+                write(buildContentBlockStop(blockIdx))
                 blockIdx++
               }
 
@@ -279,35 +274,35 @@ async function processChat(
                 if (toolUses.length) {
                   stopReason = 'tool_use'
                   for (const tu of toolUses) {
-                    controller.enqueue(encoder.encode(buildToolUseStart(blockIdx, tu.id, tu.name)))
-                    controller.enqueue(encoder.encode(buildToolUseDelta(blockIdx, JSON.stringify(tu.input))))
-                    controller.enqueue(encoder.encode(buildContentBlockStop(blockIdx)))
+                    write(buildToolUseStart(blockIdx, tu.id, tu.name))
+                    write(buildToolUseDelta(blockIdx, JSON.stringify(tu.input)))
+                    write(buildContentBlockStop(blockIdx))
                     blockIdx++
                   }
                 }
               }
 
-              controller.enqueue(encoder.encode(buildMessageDelta(ev.usage?.output_tokens || 0, stopReason)))
-              controller.enqueue(encoder.encode(buildMessageStop()))
+              write(buildMessageDelta(ev.usage?.output_tokens || 0, stopReason))
+              write(buildMessageStop())
               break
             }
           }
-          // WebSocket 可能在未发送 finish 事件时断开，确保客户端收到结束信号
+
           if (!handler.finished) {
             if (inThinking) {
-              controller.enqueue(encoder.encode(buildContentBlockStop(blockIdx)))
+              write(buildContentBlockStop(blockIdx))
               blockIdx++
             }
             if (inText) {
-              controller.enqueue(encoder.encode(buildContentBlockStop(blockIdx)))
+              write(buildContentBlockStop(blockIdx))
               blockIdx++
             }
-            controller.enqueue(encoder.encode(buildMessageDelta(0, 'end_turn')))
-            controller.enqueue(encoder.encode(buildMessageStop()))
+            write(buildMessageDelta(0, 'end_turn'))
+            write(buildMessageStop())
           }
           recordRequest(model, handler.inputTokens, handler.outputTokens).catch(() => {})
         } catch (err) {
-          controller.enqueue(encoder.encode(`event: error\ndata: ${JSON.stringify({ error: String(err) })}\n\n`))
+          write(`event: error\ndata: ${JSON.stringify({ error: String(err) })}\n\n`)
         } finally {
           controller.close()
         }
