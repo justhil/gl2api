@@ -111,6 +111,7 @@ export async function* sendChat(
   idToken: string,
   interactionId?: string
 ): AsyncGenerator<GumloopEvent> {
+  console.log('[sendChat] start, gummieId:', gummieId)
   const chatId = interactionId || generateChatId()
   const gumloopMsgs = formatMessages(messages)
 
@@ -143,6 +144,7 @@ export async function* sendChat(
   }
 
   ws.on('open', () => {
+    console.log('[WS] open, sending payload')
     ws.send(JSON.stringify(payload))
   })
 
@@ -160,6 +162,7 @@ export async function* sendChat(
   })
 
   ws.on('error', (err) => {
+    console.log('[WS] error:', err.message)
     push({ type: 'error', error: err })
   })
 
