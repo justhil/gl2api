@@ -10,7 +10,6 @@ import { buildGeminiStreamChunk } from '@/lib/gumloop/parser'
 import { extractGeminiFile, uploadFile, createFilePart, type FilePart } from '@/lib/gumloop/file'
 
 export const runtime = 'nodejs'
-export const maxDuration = 60
 
 interface ExtractedMessage {
   role: string

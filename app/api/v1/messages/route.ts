@@ -27,7 +27,6 @@ import {
 import { uploadFile, createFilePart } from '@/lib/gumloop/file'
 
 export const runtime = 'nodejs'
-export const maxDuration = 60
 
 function generateMsgId(): string {
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'

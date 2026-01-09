@@ -1,4 +1,4 @@
-import { kv } from '@vercel/kv'
+import { kv } from '../kv'
 import type { Account } from '../gumloop/types'
 
 const ACCOUNTS_KEY = 'accounts'

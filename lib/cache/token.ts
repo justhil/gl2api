@@ -1,4 +1,4 @@
-import { kv } from '@vercel/kv'
+import { kv } from '../kv'
 import type { TokenCache } from '../gumloop/types'
 import { firebaseRefresh, isTokenExpired } from '../gumloop/auth'
 

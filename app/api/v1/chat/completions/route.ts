@@ -10,7 +10,6 @@ import { buildOpenAIChunk, buildOpenAIDone } from '@/lib/gumloop/parser'
 import { extractOpenAIImage, extractOpenAIFile, uploadFile, createFilePart } from '@/lib/gumloop/file'
 
 export const runtime = 'nodejs'
-export const maxDuration = 60
 
 function generateId(): string {
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'

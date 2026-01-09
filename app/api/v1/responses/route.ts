@@ -8,7 +8,6 @@ import { sendChat, generateChatId } from '@/lib/gumloop/client'
 import { GumloopStreamHandler } from '@/lib/gumloop/handler'
 
 export const runtime = 'nodejs'
-export const maxDuration = 60
 
 function generateId(): string {
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
