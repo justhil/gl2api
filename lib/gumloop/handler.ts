@@ -69,11 +69,7 @@ export class GumloopStreamHandler {
         return { type: 'text_end', index: this.blockIndex }
 
       case 'finish':
-        // opus4.5 sends two finish events: first with final=false, then final=true
-        // other models send one finish event without final field
-        if (event.final === false) {
-          return { type: 'finish_pending' }
-        }
+        if (this.finished) return { type: 'ignored' }
         this.finished = true
         const usage = event.usage || {}
         this.outputTokens = usage.output_tokens || Math.ceil(this.getFullText().length / 4)
