@@ -19,6 +19,9 @@ node_modules
 *.md
 !README.md
 
+# Python files (local testing)
+*.py
+
 # Windows
 nul
 Thumbs.db
