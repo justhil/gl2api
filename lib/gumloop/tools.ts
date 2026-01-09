@@ -38,10 +38,7 @@ You can use multiple tools in one response. After outputting tool_use blocks, wa
 const TOOL_USE_PATTERN_XML = /<tool_use(?:\s+id="([^"]*)")?>\s*<name>([^<]+)<\/name>\s*<input>(.*?)<\/input>\s*<\/tool_use>/gs
 
 // 格式2: <tool_use>{"name": "xxx", "input": {...}}</tool_use>
-const TOOL_USE_PATTERN_JSON = /<tool_use>\s*\{[\s\S]*?"name"\s*:\s*"[^"]+[\s\S]*?\}\s*<\/tool_use>/g
-
-// 格式3: <tool_use>\ntool_name\n{"param": "value"}\n</tool_use>
-const TOOL_USE_PATTERN_SIMPLE = /<tool_use>\s*([a-zA-Z_][a-zA-Z0-9_:]*)\s*(\{[\s\S]*?\})\s*<\/tool_use>/g
+const TOOL_USE_PATTERN_JSON = /<tool_use>\s*(\{[\s\S]*?\})\s*<\/tool_use>/g
 
 export interface ToolUseBlock {
   type: 'tool_use'
@@ -80,33 +77,9 @@ export function parseToolCalls(text: string): { remainingText: string; toolUses:
   }
   remainingText = remainingText.replace(TOOL_USE_PATTERN_XML, '')
 
-  // 解析格式3: 简单格式 (tool_name\n{json})
-  for (const match of remainingText.matchAll(TOOL_USE_PATTERN_SIMPLE)) {
-    const name = match[1].trim()
-    const inputStr = match[2].trim()
-
-    // 跳过如果 name 看起来像 JSON 的开头
-    if (name.startsWith('{') || name.startsWith('"')) continue
-
-    let input: Record<string, unknown>
-    try {
-      input = JSON.parse(inputStr)
-    } catch {
-      input = { raw: inputStr }
-    }
-
-    toolUses.push({ type: 'tool_use', id: generateToolId(), name, input })
-  }
-  remainingText = remainingText.replace(TOOL_USE_PATTERN_SIMPLE, '')
-
   // 解析格式2: JSON对象格式
   for (const match of remainingText.matchAll(TOOL_USE_PATTERN_JSON)) {
-    const fullMatch = match[0]
-    // 提取 JSON 部分
-    const jsonMatch = fullMatch.match(/<tool_use>\s*(\{[\s\S]*\})\s*<\/tool_use>/)
-    if (!jsonMatch) continue
-
-    const jsonStr = jsonMatch[1].trim()
+    const jsonStr = match[1].trim()
 
     try {
       const parsed = JSON.parse(jsonStr)
