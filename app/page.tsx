@@ -62,6 +62,7 @@ export default function AdminPage() {
   const [settingsLoading, setSettingsLoading] = useState(false)
 
   const [allCredits, setAllCredits] = useState<AccountCredits[]>([])
+  const [creditsLoading, setCreditsLoading] = useState(false)
   const [stats, setStats] = useState<Stats>({ day: [], week: [], month: [] })
   const [statsPeriod, setStatsPeriod] = useState<'day' | 'week' | 'month'>('day')
 
@@ -104,6 +105,7 @@ export default function AdminPage() {
   }
 
   async function loadAllCredits() {
+    setCreditsLoading(true)
     const results: AccountCredits[] = []
     for (const account of accounts) {
       try {
@@ -125,6 +127,7 @@ export default function AdminPage() {
       }
     }
     setAllCredits(results)
+    setCreditsLoading(false)
   }
 
   async function saveGlobalSettings() {
@@ -394,7 +397,16 @@ export default function AdminPage() {
         {/* Credits per Account */}
         {allCredits.length > 0 && (
           <div className="bg-zinc-900/50 border border-zinc-800/50 rounded p-3">
-            <div className="text-xs text-zinc-500 mb-2">各账号额度</div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs text-zinc-500">各账号额度</span>
+              <button
+                onClick={loadAllCredits}
+                disabled={creditsLoading}
+                className="px-2 py-0.5 bg-zinc-800 hover:bg-zinc-700 rounded text-xs disabled:opacity-50"
+              >
+                {creditsLoading ? '刷新中...' : '刷新'}
+              </button>
+            </div>
             <div className="flex flex-wrap gap-3">
               {allCredits.map((c) => (
                 <div key={c.accountId} className="text-xs">

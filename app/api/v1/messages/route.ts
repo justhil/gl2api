@@ -259,7 +259,6 @@ async function processChat(
                 inText = false
               }
             } else if (ev.type === 'finish') {
-              console.log('[SSE] Received finish event, sending end signals')
               if (inThinking) {
                 write(buildContentBlockStop(blockIdx))
                 blockIdx++
@@ -285,7 +284,6 @@ async function processChat(
 
               write(buildMessageDelta(ev.usage?.output_tokens || 0, stopReason))
               write(buildMessageStop())
-              console.log('[SSE] End signals sent, breaking loop')
               break
             }
           }
@@ -304,10 +302,8 @@ async function processChat(
           }
           recordRequest(model, handler.inputTokens, handler.outputTokens).catch(() => {})
         } catch (err) {
-          console.error('[SSE] Error:', err)
           write(`event: error\ndata: ${JSON.stringify({ error: String(err) })}\n\n`)
         } finally {
-          console.log('[SSE] Closing controller')
           controller.close()
         }
       },
