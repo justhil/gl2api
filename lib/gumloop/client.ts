@@ -184,7 +184,7 @@ export async function* sendChat(
       if (pending.length > 0) {
         const event = pending.shift()!
         yield event
-        if (event.type === 'finish' && event.final !== false) {
+        if (event.type === 'finish') {
           return
         }
         continue
@@ -200,7 +200,7 @@ export async function* sendChat(
 
       if (event === null) return
       yield event
-      if (event.type === 'finish' && event.final !== false) {
+      if (event.type === 'finish') {
         return
       }
     }
