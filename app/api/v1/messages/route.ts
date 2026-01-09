@@ -335,6 +335,10 @@ async function processChat(
         content.push({ ...tu })
       }
     }
+    // 确保 content 至少有一个元素
+    if (content.length === 0 || (content.length === 1 && content[0].type === 'thinking')) {
+      content.push({ type: 'text', text: '' })
+    }
   } else {
     content.push({ type: 'text', text: fullText })
   }

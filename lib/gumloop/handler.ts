@@ -66,7 +66,10 @@ export class GumloopStreamHandler {
 
       case 'text-end':
         this.inText = false
-        // 所有模型都返回 text_end，让 route 处理结束逻辑
+        // 对于不发送 finish 事件的模型，在 text-end 时估算 token 数
+        if (this.outputTokens === 0) {
+          this.outputTokens = Math.ceil(this.getFullText().length / 4)
+        }
         return { type: 'text_end', index: this.blockIndex }
 
       case 'finish':
