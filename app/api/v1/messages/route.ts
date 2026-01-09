@@ -100,10 +100,10 @@ export async function POST(req: NextRequest) {
   const chatId = generateChatId()
   if (data.tools || data.system) {
     console.log('[messages] has tools:', data.tools?.length, 'has system:', !!data.system)
-    console.log('[messages] tools:', JSON.stringify(data.tools, null, 2))
     try {
       await updateGummieConfig(gummieId, userId, idToken, {
-        systemPrompt: systemText,
+        // 当有 tools 时，如果没有 system 则传空字符串清除旧的 system_prompt
+        systemPrompt: systemText ?? (data.tools ? '' : undefined),
         tools: data.tools?.map((t) => ({
           name: t.name,
           description: t.description || '',
