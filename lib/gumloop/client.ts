@@ -153,9 +153,12 @@ export async function* sendChat(
   ws.on('message', (data) => {
     try {
       const event = JSON.parse(data.toString()) as GumloopEvent
-      debugEvents.push(`msg:${event.type}${event.type === 'finish' ? `:final=${event.final}` : ''}`)
+      const isFinalFinish = event.type === 'finish' && event.final === true
+      debugEvents.push(`msg:${event.type}${event.type === 'finish' ? `:final=${event.final}:isFinal=${isFinalFinish}` : ''}`)
+      console.log('[ws] event:', event.type, event.type === 'finish' ? `final=${event.final}` : '')
       push({ type: 'event', event })
-      if (event.type === 'finish' && event.final === true) {
+      if (isFinalFinish) {
+        console.log('[ws] closing due to final finish')
         ws.close()
       }
     } catch {
@@ -180,9 +183,15 @@ export async function* sendChat(
 
     const item = queue.shift()!
     if (item.type === 'error') throw item.error
-    if (item.type === 'done') break
+    if (item.type === 'done') {
+      console.log('[sendChat] done via ws close')
+      break
+    }
     yield item.event
-    if (item.event.type === 'finish' && item.event.final === true) break
+    if (item.event.type === 'finish' && item.event.final === true) {
+      console.log('[sendChat] done via final finish')
+      break
+    }
   }
 
   // 输出调试事件
