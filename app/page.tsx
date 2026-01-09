@@ -243,6 +243,50 @@ export default function AdminPage() {
     }
   }
 
+  async function deleteGummie(gummieId: string) {
+    if (!selectedAccount) return
+    if (!confirm('确定删除此 Gummie？')) return
+    try {
+      const resp = await fetch(`/api/v2/gummies/${gummieId}?accountId=${selectedAccount.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (resp.ok) {
+        setSuccess('Gummie 已删除')
+        setTimeout(() => setSuccess(''), 2000)
+        loadGummies(selectedAccount.id)
+      } else {
+        const data = await resp.json()
+        setError(data.error || '删除失败')
+      }
+    } catch {
+      setError('网络错误')
+    }
+  }
+
+  async function updateGummie(gummieId: string, field: 'name' | 'model_name', currentValue: string) {
+    if (!selectedAccount) return
+    const newValue = prompt(`输入新的 ${field === 'name' ? '名称' : '模型'}:`, currentValue)
+    if (!newValue || newValue === currentValue) return
+    try {
+      const resp = await fetch(`/api/v2/gummies/${gummieId}?accountId=${selectedAccount.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ [field]: newValue }),
+      })
+      if (resp.ok) {
+        setSuccess('已更新')
+        setTimeout(() => setSuccess(''), 2000)
+        loadGummies(selectedAccount.id)
+      } else {
+        const data = await resp.json()
+        setError(data.error || '更新失败')
+      }
+    } catch {
+      setError('网络错误')
+    }
+  }
+
   async function handleChat(e: React.FormEvent) {
     e.preventDefault()
     if (!chatInput.trim()) return
@@ -447,23 +491,6 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-                {/* Model Gummies Mapping */}
-                {selectedAccount.gummies && Object.keys(selectedAccount.gummies).length > 0 && (
-                  <div className="bg-zinc-900 border border-zinc-800 rounded-lg">
-                    <div className="p-3 border-b border-zinc-800">
-                      <span className="font-medium">模型映射 ({Object.keys(selectedAccount.gummies).length})</span>
-                    </div>
-                    <div className="divide-y divide-zinc-800 max-h-64 overflow-y-auto">
-                      {Object.entries(selectedAccount.gummies).map(([model, gummieId]) => (
-                        <div key={model} className="p-3 flex items-center justify-between">
-                          <div className="font-medium text-sm">{model}</div>
-                          <div className="text-xs text-zinc-500 font-mono">{gummieId.slice(0, 12)}...</div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
                 {/* Gummies from API */}
                 <div className="bg-zinc-900 border border-zinc-800 rounded-lg">
                   <div className="p-3 border-b border-zinc-800 flex items-center justify-between">
@@ -478,14 +505,36 @@ export default function AdminPage() {
                       </button>
                     )}
                   </div>
-                  <div className="divide-y divide-zinc-800 max-h-64 overflow-y-auto">
+                  <div className="divide-y divide-zinc-800 max-h-96 overflow-y-auto">
                     {gummies.map((g) => (
-                      <div key={g.gummie_id} className="p-3 flex items-center justify-between">
-                        <div>
-                          <div className="font-medium text-sm">{g.name}</div>
-                          <div className="text-xs text-zinc-500">{g.model_name}</div>
+                      <div key={g.gummie_id} className="p-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-sm truncate">{g.name}</div>
+                            <div className="text-xs text-zinc-500">{g.model_name}</div>
+                          </div>
+                          <div className="text-xs text-zinc-600 font-mono ml-2">{g.gummie_id.slice(0, 8)}</div>
                         </div>
-                        <div className="text-xs text-zinc-500 font-mono">{g.gummie_id.slice(0, 12)}...</div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => updateGummie(g.gummie_id, 'name', g.name)}
+                            className="px-2 py-1 bg-zinc-700 hover:bg-zinc-600 rounded text-xs"
+                          >
+                            重命名
+                          </button>
+                          <button
+                            onClick={() => updateGummie(g.gummie_id, 'model_name', g.model_name)}
+                            className="px-2 py-1 bg-zinc-700 hover:bg-zinc-600 rounded text-xs"
+                          >
+                            改模型
+                          </button>
+                          <button
+                            onClick={() => deleteGummie(g.gummie_id)}
+                            className="px-2 py-1 bg-red-600/80 hover:bg-red-600 rounded text-xs"
+                          >
+                            删除
+                          </button>
+                        </div>
                       </div>
                     ))}
                     {gummies.length === 0 && <div className="p-4 text-center text-zinc-500 text-sm">暂无 Gummie</div>}
