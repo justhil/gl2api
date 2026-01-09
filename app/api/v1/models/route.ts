@@ -1,14 +1,16 @@
 import { NextResponse } from 'next/server'
+import { AVAILABLE_MODELS } from '@/lib/utils/model-map'
 
 export async function GET() {
+  const models = AVAILABLE_MODELS.map((id) => ({
+    id,
+    object: 'model',
+    created: 1700000000,
+    owned_by: 'gumloop',
+  }))
+
   return NextResponse.json({
-    data: [
-      { id: 'claude-sonnet-4-5', object: 'model' },
-      { id: 'claude-opus-4-5', object: 'model' },
-      { id: 'claude-haiku-4-5', object: 'model' },
-      { id: 'gpt-4', object: 'model' },
-      { id: 'gpt-4-turbo', object: 'model' },
-      { id: 'gpt-3.5-turbo', object: 'model' },
-    ],
+    object: 'list',
+    data: models,
   })
 }

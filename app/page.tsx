@@ -8,6 +8,7 @@ interface Account {
   refreshToken?: string
   userId?: string
   gummieId?: string
+  gummies?: Record<string, string>
   enabled: boolean
   createdAt: string
   errorCount: number
@@ -35,7 +36,7 @@ export default function AdminPage() {
 
   // Add account
   const [showAddForm, setShowAddForm] = useState(false)
-  const [formData, setFormData] = useState({ refreshToken: '', label: '', gummieId: '' })
+  const [formData, setFormData] = useState({ refreshToken: '', label: '' })
 
   // Selected account
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null)
@@ -141,15 +142,15 @@ export default function AdminPage() {
       const resp = await fetch('/api/v2/accounts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({ ...formData, createGummies: true }),
       })
       const data = await resp.json()
       if (resp.ok) {
         setShowAddForm(false)
-        setFormData({ refreshToken: '', label: '', gummieId: '' })
+        setFormData({ refreshToken: '', label: '' })
         loadAccounts()
-        setSuccess('账号添加成功')
-        setTimeout(() => setSuccess(''), 3000)
+        setSuccess(`账号添加成功，已创建 ${data.gummiesCreated || 0} 个 Gummie`)
+        setTimeout(() => setSuccess(''), 5000)
       } else {
         setError(data.error || '添加失败')
       }
@@ -214,23 +215,6 @@ export default function AdminPage() {
       setCredits(data.credits ?? null)
     } catch {
       setCredits(null)
-    }
-  }
-
-  async function setDefaultGummie(gummieId: string) {
-    if (!selectedAccount) return
-    try {
-      await fetch(`/api/v2/accounts/${selectedAccount.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ gummieId }),
-      })
-      loadAccounts()
-      setSelectedAccount({ ...selectedAccount, gummieId })
-      setSuccess('已设为默认')
-      setTimeout(() => setSuccess(''), 2000)
-    } catch {
-      setError('设置失败')
     }
   }
 
@@ -377,13 +361,7 @@ export default function AdminPage() {
                   className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-sm font-mono focus:outline-none focus:border-blue-500 resize-none"
                   required
                 />
-                <input
-                  type="text"
-                  placeholder="Gummie ID（可选）"
-                  value={formData.gummieId}
-                  onChange={(e) => setFormData({ ...formData, gummieId: e.target.value })}
-                  className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-sm focus:outline-none focus:border-blue-500"
-                />
+                <p className="text-xs text-zinc-500">添加后将自动为每个模型创建对应的 Gummie</p>
                 <button type="submit" disabled={loading} className="w-full py-2 bg-green-600 hover:bg-green-700 rounded text-sm disabled:opacity-50">
                   {loading ? '添加中...' : '添加账号'}
                 </button>
@@ -403,7 +381,9 @@ export default function AdminPage() {
                       {account.enabled ? '启用' : '禁用'}
                     </span>
                   </div>
-                  <div className="text-xs text-zinc-500 truncate">Gummie: {account.gummieId || '未设置'}</div>
+                  <div className="text-xs text-zinc-500">
+                    模型: {account.gummies ? Object.keys(account.gummies).length : 0} 个
+                  </div>
                   <div className="flex gap-2 mt-2">
                     <button
                       onClick={(e) => { e.stopPropagation(); toggleAccount(account.id, !account.enabled) }}
@@ -442,7 +422,24 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-                {/* Gummies */}
+                {/* Model Gummies Mapping */}
+                {selectedAccount.gummies && Object.keys(selectedAccount.gummies).length > 0 && (
+                  <div className="bg-zinc-900 border border-zinc-800 rounded-lg">
+                    <div className="p-3 border-b border-zinc-800">
+                      <span className="font-medium">模型映射 ({Object.keys(selectedAccount.gummies).length})</span>
+                    </div>
+                    <div className="divide-y divide-zinc-800 max-h-64 overflow-y-auto">
+                      {Object.entries(selectedAccount.gummies).map(([model, gummieId]) => (
+                        <div key={model} className="p-3 flex items-center justify-between">
+                          <div className="font-medium text-sm">{model}</div>
+                          <div className="text-xs text-zinc-500 font-mono">{gummieId.slice(0, 12)}...</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Gummies from API */}
                 <div className="bg-zinc-900 border border-zinc-800 rounded-lg">
                   <div className="p-3 border-b border-zinc-800">
                     <span className="font-medium">Gummie 列表 ({gummies.length})</span>
@@ -451,22 +448,10 @@ export default function AdminPage() {
                     {gummies.map((g) => (
                       <div key={g.gummie_id} className="p-3 flex items-center justify-between">
                         <div>
-                          <div className="font-medium text-sm flex items-center gap-2">
-                            {g.name}
-                            {selectedAccount.gummieId === g.gummie_id && (
-                              <span className="px-1.5 py-0.5 bg-blue-600 rounded text-xs">默认</span>
-                            )}
-                          </div>
+                          <div className="font-medium text-sm">{g.name}</div>
                           <div className="text-xs text-zinc-500">{g.model_name}</div>
                         </div>
-                        {selectedAccount.gummieId !== g.gummie_id && (
-                          <button
-                            onClick={() => setDefaultGummie(g.gummie_id)}
-                            className="px-2 py-1 bg-zinc-700 hover:bg-zinc-600 rounded text-xs"
-                          >
-                            设为默认
-                          </button>
-                        )}
+                        <div className="text-xs text-zinc-500 font-mono">{g.gummie_id.slice(0, 12)}...</div>
                       </div>
                     ))}
                     {gummies.length === 0 && <div className="p-4 text-center text-zinc-500 text-sm">暂无 Gummie</div>}

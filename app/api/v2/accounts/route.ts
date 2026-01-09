@@ -1,15 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { verifyAdmin } from '@/lib/utils/admin'
-import { getAccounts, createAccount } from '@/lib/db/accounts'
+import { getAccounts, createAccount, getGlobalSettings } from '@/lib/db/accounts'
 import { firebaseRefresh } from '@/lib/gumloop/auth'
+import { createGummie, listGummies } from '@/lib/gumloop/api'
+import { AVAILABLE_MODELS } from '@/lib/utils/model-map'
+import type { ModelGummieMap } from '@/lib/gumloop/types'
 
 const AccountCreateSchema = z.object({
   label: z.string().optional(),
   refreshToken: z.string(),
   userId: z.string().optional(),
-  gummieId: z.string().optional(),
   enabled: z.boolean().default(true),
+  createGummies: z.boolean().default(true),  // 是否自动创建 gummie
 })
 
 export async function GET(req: NextRequest) {
@@ -42,24 +45,69 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid request', details: parsed.error.issues }, { status: 400 })
   }
 
-  const { refreshToken, label, gummieId, enabled } = parsed.data
+  const { refreshToken, label, enabled, createGummies: shouldCreateGummies } = parsed.data
 
-  // Validate refreshToken by trying to refresh
-  let userId = parsed.data.userId
+  // Validate refreshToken and get user info
+  let idToken: string
+  let userId: string
   try {
     const tokenData = await firebaseRefresh(refreshToken)
+    idToken = tokenData.idToken
     userId = tokenData.userId
   } catch (err) {
     return NextResponse.json({ error: `Invalid refreshToken: ${err}` }, { status: 400 })
+  }
+
+  // Get global system prompt
+  const globalSettings = await getGlobalSettings()
+  const systemPrompt = globalSettings.systemPrompt || ''
+
+  // Build gummies map
+  const gummies: ModelGummieMap = {}
+  let defaultGummieId: string | undefined
+
+  if (shouldCreateGummies) {
+    // Get existing gummies
+    const existingGummies = await listGummies(idToken, userId)
+    const existingByModel = new Map(existingGummies.map(g => [g.model_name, g.gummie_id]))
+
+    // Create gummies for each model
+    for (const modelName of AVAILABLE_MODELS) {
+      // Check if gummie already exists for this model
+      if (existingByModel.has(modelName)) {
+        gummies[modelName] = existingByModel.get(modelName)!
+        if (!defaultGummieId) defaultGummieId = gummies[modelName]
+        continue
+      }
+
+      // Create new gummie
+      try {
+        const gummie = await createGummie(idToken, userId, {
+          name: modelName,
+          modelName,
+          systemPrompt,
+        })
+        if (gummie) {
+          gummies[modelName] = gummie.gummie_id
+          if (!defaultGummieId) defaultGummieId = gummie.gummie_id
+        }
+      } catch (err) {
+        console.error(`Failed to create gummie for ${modelName}:`, err)
+      }
+    }
   }
 
   const account = await createAccount({
     label,
     refreshToken,
     userId,
-    gummieId,
+    gummieId: defaultGummieId,
+    gummies,
     enabled,
   })
 
-  return NextResponse.json(account)
+  return NextResponse.json({
+    ...account,
+    gummiesCreated: Object.keys(gummies).length,
+  })
 }

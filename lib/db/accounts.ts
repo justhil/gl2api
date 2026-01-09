@@ -55,7 +55,7 @@ export async function createAccount(data: Partial<Account>): Promise<Account> {
     refreshToken: data.refreshToken,
     userId: data.userId,
     gummieId: data.gummieId,
-    systemPrompt: data.systemPrompt,
+    gummies: data.gummies,
     createdAt: now,
     updatedAt: now,
     enabled: data.enabled ?? true,
@@ -106,6 +106,16 @@ export async function getEnabledAccount(): Promise<Account | null> {
   const accounts = await getAccounts({ enabled: true })
   if (!accounts.length) return null
   return accounts[0]
+}
+
+// 根据模型获取对应的 gummieId
+export function getGummieIdForModel(account: Account, model: string): string | null {
+  // 优先从 gummies 映射中查找
+  if (account.gummies && account.gummies[model]) {
+    return account.gummies[model]
+  }
+  // 回退到默认 gummieId
+  return account.gummieId || null
 }
 
 // ============ Global Settings ============

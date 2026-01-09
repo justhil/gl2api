@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { ClaudeRequestSchema } from '@/lib/gumloop/types'
 import { verifyApiKey } from '@/lib/utils/api-key'
 import { mapModel } from '@/lib/utils/model-map'
-import { getEnabledAccount } from '@/lib/db/accounts'
+import { getEnabledAccount, getGummieIdForModel } from '@/lib/db/accounts'
 import { getToken } from '@/lib/cache/token'
 import { sendChat, updateGummieConfig } from '@/lib/gumloop/client'
 import { GumloopStreamHandler } from '@/lib/gumloop/handler'
@@ -49,9 +49,17 @@ export async function POST(req: NextRequest) {
   }
 
   const data = parsed.data
+  const model = mapModel(data.model)
+
   const account = await getEnabledAccount()
-  if (!account?.refreshToken || !account.gummieId) {
+  if (!account?.refreshToken) {
     return NextResponse.json({ error: { type: 'api_error', message: 'No enabled account configured' } }, { status: 500 })
+  }
+
+  // 根据模型选择对应的 gummie
+  const gummieId = getGummieIdForModel(account, model)
+  if (!gummieId) {
+    return NextResponse.json({ error: { type: 'api_error', message: `No gummie configured for model: ${model}` } }, { status: 500 })
   }
 
   let idToken: string
@@ -63,8 +71,6 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     return NextResponse.json({ error: { type: 'api_error', message: `Authentication failed: ${err}` } }, { status: 500 })
   }
-
-  const gummieId = account.gummieId
 
   // Check for tool loops
   const hasTools = Boolean(data.tools?.length)
@@ -87,8 +93,6 @@ export async function POST(req: NextRequest) {
         .join('\n')
     }
   }
-
-  const model = mapModel(data.model)
 
   // Update gummie config if needed
   if (data.tools || data.system) {

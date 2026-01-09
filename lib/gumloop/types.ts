@@ -26,13 +26,16 @@ export interface TokenCache {
 
 // ============ Account Types ============
 
+// 模型到 Gummie ID 的映射
+export type ModelGummieMap = Record<string, string>
+
 export interface Account {
   id: string
   label?: string
   refreshToken?: string
   userId?: string
-  gummieId?: string
-  systemPrompt?: string  // 全局 system prompt
+  gummieId?: string  // 默认 gummie（兼容旧逻辑）
+  gummies?: ModelGummieMap  // 模型 -> gummieId 映射
   createdAt: string
   updatedAt: string
   enabled: boolean
