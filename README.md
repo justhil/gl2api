@@ -78,6 +78,16 @@ npm run dev
 - 删除账号内已有的所有 Agent
 - 为每个支持的模型创建对应的 Agent
 
+#### 获取 Refresh Token
+
+1. 打开 https://www.gumloop.com 并登录
+2. 按 `F12` 打开开发者工具
+3. 切换到 **Network** (网络) 标签
+4. 在筛选框输入 `securetoken.googleapis.com`
+5. 随便进行一次对话，触发请求
+6. 点击该请求，在 **Response** (响应) 中找到 `refresh_token` 字段
+7. 复制该值即为 Refresh Token
+
 ### 3. 管理界面功能
 
 - **总额度显示**：汇总所有账号的剩余额度
