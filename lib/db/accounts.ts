@@ -1,8 +1,11 @@
 import { kv } from '../kv'
+import { memCache } from '../cache/memory'
 import type { Account } from '../gumloop/types'
 
 const ACCOUNTS_KEY = 'accounts'
 const ACCOUNT_PREFIX = 'account:'
+const ENABLED_ACCOUNT_KEY = 'enabled_account'
+const MEM_TTL = 60000 // 1 minute
 
 function generateId(): string {
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
@@ -81,6 +84,7 @@ export async function updateAccount(id: string, data: Partial<Account>): Promise
   }
 
   await kv.set(`${ACCOUNT_PREFIX}${id}`, updated)
+  invalidateEnabledAccountCache()
   return updated
 }
 
@@ -90,6 +94,7 @@ export async function deleteAccount(id: string): Promise<boolean> {
 
   await kv.del(`${ACCOUNT_PREFIX}${id}`)
   await kv.srem(ACCOUNTS_KEY, id)
+  invalidateEnabledAccountCache()
   return true
 }
 
@@ -103,9 +108,19 @@ export async function incrementAccountStats(id: string, field: 'errorCount' | 's
 }
 
 export async function getEnabledAccount(): Promise<Account | null> {
+  // 先查内存缓存
+  const cached = memCache.get<Account>(ENABLED_ACCOUNT_KEY)
+  if (cached) return cached
+
   const accounts = await getAccounts({ enabled: true })
   if (!accounts.length) return null
+
+  memCache.set(ENABLED_ACCOUNT_KEY, accounts[0], MEM_TTL)
   return accounts[0]
+}
+
+export function invalidateEnabledAccountCache(): void {
+  memCache.delete(ENABLED_ACCOUNT_KEY)
 }
 
 // 根据模型获取对应的 gummieId
