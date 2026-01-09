@@ -66,7 +66,9 @@ export class GumloopStreamHandler {
 
       case 'text-end':
         this.inText = false
-        return { type: 'text_end', index: this.blockIndex }
+        // 标记为已完成，因为有些模型在 text-end 后不发送 finish
+        this.finished = true
+        return { type: 'finish', index: this.blockIndex }
 
       case 'finish':
         if (this.finished) return { type: 'ignored' }
