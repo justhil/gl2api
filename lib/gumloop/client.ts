@@ -38,10 +38,21 @@ function formatMessages(messages: Message[]): GumloopMessage[] {
 
     const parts: GumloopMessagePart[] = []
 
+    // 文件放在前面
     if (msg.files?.length) {
       for (const file of msg.files) {
         parts.push(file)
       }
+    }
+
+    // 文本内容作为 part 添加
+    if (msg.content) {
+      parts.push({
+        id: `${msgId}_text`,
+        type: 'text',
+        text: msg.content,
+        timestamp,
+      })
     }
 
     if (parts.length > 0) {
@@ -49,7 +60,6 @@ function formatMessages(messages: Message[]): GumloopMessage[] {
         id: msgId,
         role: 'user' as const,
         timestamp,
-        content: msg.content,
         parts,
       }
     }
@@ -148,7 +158,7 @@ export async function* sendChat(
         pending.push(parsed)
       }
 
-      if (parsed.type === 'finish') {
+      if (parsed.type === 'finish' || parsed.type === 'text-end') {
         closed = true
         ws.close()
       }
@@ -200,7 +210,7 @@ export async function* sendChat(
 
       if (event === null) return
       yield event
-      if (event.type === 'finish') {
+      if (event.type === 'finish' || event.type === 'text-end') {
         return
       }
     }

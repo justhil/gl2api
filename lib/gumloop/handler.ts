@@ -23,10 +23,14 @@ export class GumloopStreamHandler {
   inReasoning = false
   finished = false
 
+  // Claude 全系列使用 text-end 作为停止标识，其他模型使用 finish
+  private isClaudeModel: boolean
+
   constructor(model = 'claude-sonnet-4-5', inputTokens = 0) {
     this.model = model
     this.inputTokens = inputTokens
     this.outputTokens = 0
+    this.isClaudeModel = model.startsWith('claude-')
   }
 
   handleEvent(event: GumloopEvent): HandlerResult {
@@ -66,9 +70,12 @@ export class GumloopStreamHandler {
 
       case 'text-end':
         this.inText = false
-        // 标记为已完成，因为有些模型在 text-end 后不发送 finish
-        this.finished = true
-        return { type: 'finish', index: this.blockIndex }
+        // Claude 全系列在 text-end 后结束，其他模型等待 finish
+        if (this.isClaudeModel) {
+          this.finished = true
+          return { type: 'finish', index: this.blockIndex }
+        }
+        return { type: 'text_end', index: this.blockIndex }
 
       case 'finish':
         if (this.finished) return { type: 'ignored' }

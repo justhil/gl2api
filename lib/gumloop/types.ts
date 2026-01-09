@@ -100,6 +100,27 @@ export type ClaudeRequest = z.infer<typeof ClaudeRequestSchema>
 export const OpenAIMessageSchema = z.object({
   role: z.string(),
   content: z.any(),
+  tool_call_id: z.string().optional(),
+})
+
+export const OpenAIFunctionSchema = z.object({
+  name: z.string(),
+  description: z.string().optional(),
+  parameters: z.any().optional(),
+})
+
+export const OpenAIToolSchema = z.object({
+  type: z.string().default('function'),
+  function: OpenAIFunctionSchema,
+})
+
+export const OpenAIToolCallSchema = z.object({
+  id: z.string(),
+  type: z.string().default('function'),
+  function: z.object({
+    name: z.string(),
+    arguments: z.string(),
+  }),
 })
 
 export const ChatCompletionRequestSchema = z.object({
@@ -108,6 +129,8 @@ export const ChatCompletionRequestSchema = z.object({
   stream: z.boolean().optional().default(false),
   temperature: z.number().optional(),
   max_tokens: z.number().optional(),
+  tools: z.array(OpenAIToolSchema).optional(),
+  tool_choice: z.union([z.string(), z.record(z.any())]).optional(),
 })
 
 export const ResponsesRequestSchema = z.object({
@@ -118,6 +141,9 @@ export const ResponsesRequestSchema = z.object({
 })
 
 export type OpenAIMessage = z.infer<typeof OpenAIMessageSchema>
+export type OpenAIFunction = z.infer<typeof OpenAIFunctionSchema>
+export type OpenAITool = z.infer<typeof OpenAIToolSchema>
+export type OpenAIToolCall = z.infer<typeof OpenAIToolCallSchema>
 export type ChatCompletionRequest = z.infer<typeof ChatCompletionRequestSchema>
 export type ResponsesRequest = z.infer<typeof ResponsesRequestSchema>
 

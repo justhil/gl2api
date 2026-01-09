@@ -88,15 +88,17 @@ export function buildOpenAIChunk(
     role?: string
     content?: string
     reasoningContent?: string
+    toolCalls?: Array<{ id: string; type: string; function: { name: string; arguments: string } }>
     finishReason?: string | null
     created?: number
   } = {}
 ): string {
-  const { role, content, reasoningContent, finishReason, created = Math.floor(Date.now() / 1000) } = options
+  const { role, content, reasoningContent, toolCalls, finishReason, created = Math.floor(Date.now() / 1000) } = options
   const delta: Record<string, unknown> = {}
   if (role) delta.role = role
   if (content !== undefined) delta.content = content
   if (reasoningContent !== undefined) delta.reasoning_content = reasoningContent
+  if (toolCalls !== undefined) delta.tool_calls = toolCalls
 
   return `data: ${JSON.stringify({
     id,

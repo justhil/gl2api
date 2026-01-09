@@ -8,6 +8,8 @@ import { sendChat, generateChatId, type Message } from '@/lib/gumloop/client'
 import { GumloopStreamHandler } from '@/lib/gumloop/handler'
 import { buildOpenAIChunk, buildOpenAIDone } from '@/lib/gumloop/parser'
 import { extractOpenAIImage, extractOpenAIFile, uploadFile, createFilePart } from '@/lib/gumloop/file'
+import { convertMessagesWithOpenAITools } from '@/lib/gumloop/openai'
+import { parseToolCalls } from '@/lib/gumloop/tools'
 import { recordRequest } from '@/lib/db/stats'
 
 export const runtime = 'nodejs'
@@ -126,7 +128,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Authentication failed', details: String(err) }, { status: 500 })
   }
 
-  const extractedMessages = convertMessages(data.messages)
+  // 转换 OpenAI 格式的工具和消息为内部格式
+  const { convertedMessages, hasTools } = convertMessagesWithOpenAITools(
+    data.messages,
+    data.tools
+  )
+
+  const extractedMessages = convertMessages(convertedMessages)
   const chatId = generateChatId()
   const messages = await processFilesInMessages(extractedMessages, chatId, userId, idToken)
   const streamId = generateId()
@@ -141,14 +149,35 @@ export async function POST(req: NextRequest) {
         try {
           write(buildOpenAIChunk(streamId, model, { role: 'assistant', created }))
 
+          let fullText = ''
           for await (const event of sendChat(gummieId, messages, idToken, chatId)) {
             const ev = handler.handleEvent(event)
             if (ev.type === 'reasoning_delta' && ev.delta) {
               write(buildOpenAIChunk(streamId, model, { reasoningContent: ev.delta, created }))
             } else if (ev.type === 'text_delta' && ev.delta) {
+              fullText += ev.delta
               write(buildOpenAIChunk(streamId, model, { content: ev.delta, created }))
             } else if (ev.type === 'finish') {
-              write(buildOpenAIChunk(streamId, model, { finishReason: 'stop', created }))
+              // 检查是否包含工具调用
+              if (hasTools) {
+                const { toolUses } = parseToolCalls(fullText)
+                if (toolUses.length > 0) {
+                  // 发送工具调用完成标记
+                  const toolCalls = toolUses.map(tool => ({
+                    id: tool.id,
+                    type: 'function',
+                    function: {
+                      name: tool.name,
+                      arguments: JSON.stringify(tool.input)
+                    }
+                  }))
+                  write(buildOpenAIChunk(streamId, model, { toolCalls, finishReason: 'tool_calls', created }))
+                } else {
+                  write(buildOpenAIChunk(streamId, model, { finishReason: 'stop', created }))
+                }
+              } else {
+                write(buildOpenAIChunk(streamId, model, { finishReason: 'stop', created }))
+              }
               write(buildOpenAIDone())
               break
             }
@@ -182,10 +211,31 @@ export async function POST(req: NextRequest) {
 
   recordRequest(model, handler.inputTokens, handler.outputTokens).catch(() => {})
 
-  const message: Record<string, unknown> = { role: 'assistant', content: handler.getFullText() }
+  const fullText = handler.getFullText()
+  const message: Record<string, unknown> = { role: 'assistant', content: fullText }
   const reasoning = handler.getFullReasoning()
   if (reasoning) {
     message.reasoning_content = reasoning
+  }
+
+  let finishReason = 'stop'
+
+  // 检查是否包含工具调用
+  if (hasTools) {
+    const { toolUses, remainingText } = parseToolCalls(fullText)
+    if (toolUses.length > 0) {
+      message.content = remainingText
+      message.tool_calls = toolUses.map((tool, index) => ({
+        index,
+        id: tool.id,
+        type: 'function',
+        function: {
+          name: tool.name,
+          arguments: JSON.stringify(tool.input),
+        },
+      }))
+      finishReason = 'tool_calls'
+    }
   }
 
   return NextResponse.json({
@@ -197,7 +247,7 @@ export async function POST(req: NextRequest) {
       {
         index: 0,
         message,
-        finish_reason: 'stop',
+        finish_reason: finishReason,
       },
     ],
     usage: {
