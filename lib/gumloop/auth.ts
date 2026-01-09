@@ -1,6 +1,6 @@
 import type { TokenCache } from './types'
 
-const FIREBASE_API_KEY = 'AIzaSyDnwpWpO-z8gCG8uyGe7VPMPfqfB-A8Xr4'
+const FIREBASE_API_KEY = 'AIzaSyCYuXqbJ0YBNltoGS4-7Y6Hozrra8KKmaE'
 const FIREBASE_REFRESH_URL = 'https://securetoken.googleapis.com/v1/token'
 
 interface FirebaseRefreshResponse {
