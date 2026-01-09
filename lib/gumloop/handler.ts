@@ -83,6 +83,9 @@ export class GumloopStreamHandler {
           },
         }
 
+      case 'debug-end':
+        return { type: 'debug-end', delta: event.delta }
+
       default:
         return { type: 'unknown' }
     }

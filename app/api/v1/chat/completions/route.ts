@@ -145,6 +145,8 @@ export async function POST(req: NextRequest) {
               controller.enqueue(encoder.encode(buildOpenAIChunk(streamId, model, { finishReason: 'stop', created })))
               controller.enqueue(encoder.encode(buildOpenAIDone()))
               break
+            } else if (ev.type === 'debug-end') {
+              controller.enqueue(encoder.encode(`data: {"debug":"${ev.delta}"}\n\n`))
             }
           }
         } catch (err) {

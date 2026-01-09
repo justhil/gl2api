@@ -143,15 +143,17 @@ export async function* sendChat(
     }
   }
 
+  const debugEvents: string[] = []
+
   ws.on('open', () => {
-    console.log('[WS] open, sending payload')
+    debugEvents.push('open')
     ws.send(JSON.stringify(payload))
   })
 
   ws.on('message', (data) => {
     try {
       const event = JSON.parse(data.toString()) as GumloopEvent
-      console.log('[WS] event:', event.type, event.delta ? `delta=${event.delta.length}chars` : '')
+      debugEvents.push(`msg:${event.type}`)
       push({ type: 'event', event })
       if (event.type === 'finish') {
         ws.close()
@@ -162,12 +164,12 @@ export async function* sendChat(
   })
 
   ws.on('error', (err) => {
-    console.log('[WS] error:', err.message)
+    debugEvents.push(`error:${err.message}`)
     push({ type: 'error', error: err })
   })
 
   ws.on('close', () => {
-    console.log('[WS] closed')
+    debugEvents.push('close')
     push({ type: 'done' })
   })
 
@@ -182,4 +184,7 @@ export async function* sendChat(
     yield item.event
     if (item.event.type === 'finish') break
   }
+
+  // 输出调试事件
+  yield { type: 'debug-end', delta: debugEvents.join(',') } as GumloopEvent
 }
