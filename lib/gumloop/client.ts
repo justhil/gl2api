@@ -111,7 +111,6 @@ export async function* sendChat(
   idToken: string,
   interactionId?: string
 ): AsyncGenerator<GumloopEvent> {
-  console.log('[sendChat] start, gummieId:', gummieId)
   const chatId = interactionId || generateChatId()
   const gumloopMsgs = formatMessages(messages)
 
@@ -143,22 +142,15 @@ export async function* sendChat(
     }
   }
 
-  const debugEvents: string[] = []
-
   ws.on('open', () => {
-    debugEvents.push('open')
     ws.send(JSON.stringify(payload))
   })
 
   ws.on('message', (data) => {
     try {
       const event = JSON.parse(data.toString()) as GumloopEvent
-      const isFinalFinish = event.type === 'finish' && event.final === true
-      debugEvents.push(`msg:${event.type}${event.type === 'finish' ? `:final=${event.final}:isFinal=${isFinalFinish}` : ''}`)
-      console.log('[ws] event:', event.type, event.type === 'finish' ? `final=${event.final}` : '')
       push({ type: 'event', event })
-      if (isFinalFinish) {
-        console.log('[ws] closing due to final finish')
+      if (event.type === 'finish' && event.final === true) {
         ws.close()
       }
     } catch {
@@ -167,12 +159,10 @@ export async function* sendChat(
   })
 
   ws.on('error', (err) => {
-    debugEvents.push(`error:${err.message}`)
     push({ type: 'error', error: err })
   })
 
   ws.on('close', () => {
-    debugEvents.push('close')
     push({ type: 'done' })
   })
 
@@ -184,16 +174,11 @@ export async function* sendChat(
     const item = queue.shift()!
     if (item.type === 'error') throw item.error
     if (item.type === 'done') {
-      console.log('[sendChat] done via ws close')
       break
     }
     yield item.event
     if (item.event.type === 'finish' && item.event.final === true) {
-      console.log('[sendChat] done via final finish')
       break
     }
   }
-
-  // 输出调试事件
-  yield { type: 'debug-end', delta: debugEvents.join(',') } as GumloopEvent
 }

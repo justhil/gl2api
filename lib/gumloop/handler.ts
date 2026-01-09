@@ -69,11 +69,9 @@ export class GumloopStreamHandler {
         return { type: 'text_end', index: this.blockIndex }
 
       case 'finish':
-        console.log('[handler] finish event, final:', event.final, 'type:', typeof event.final)
         if (event.final !== true) {
           return { type: 'finish_pending' }
         }
-        console.log('[handler] returning finish')
         this.finished = true
         const usage = event.usage || {}
         this.outputTokens = usage.output_tokens || Math.ceil(this.getFullText().length / 4)
@@ -87,9 +85,6 @@ export class GumloopStreamHandler {
             total_tokens: this.inputTokens + this.outputTokens,
           },
         }
-
-      case 'debug-end':
-        return { type: 'debug-end', delta: event.delta }
 
       default:
         return { type: 'unknown' }
