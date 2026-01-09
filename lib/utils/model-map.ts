@@ -9,6 +9,10 @@ const MODEL_MAPPING: Record<string, string> = {
 
 // 其他模型（无需映射，名称直接使用）
 const OTHER_MODELS = [
+  // Anthropic Claude（无需映射）
+  'claude-opus-4-1',
+  'claude-opus-4-0',
+
   // OpenAI GPT
   'gpt-4.1',
   'gpt-4.1-mini',
