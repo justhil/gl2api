@@ -163,7 +163,8 @@ export async function POST(req: NextRequest) {
                 const { toolUses } = parseToolCalls(fullText)
                 if (toolUses.length > 0) {
                   // 发送工具调用完成标记
-                  const toolCalls = toolUses.map(tool => ({
+                  const toolCalls = toolUses.map((tool, index) => ({
+                    index,
                     id: tool.id,
                     type: 'function',
                     function: {
