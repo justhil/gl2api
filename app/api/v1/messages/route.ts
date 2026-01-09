@@ -166,6 +166,9 @@ async function processChat(
           let inThinking = false
           let inText = false
           let fullText = ''
+          // 当有 tools 时，需要缓冲文本以过滤 <tool_use> 块
+          let textBuffer = ''
+          let inToolUseXml = false
 
           for await (const event of sendChat(gummieId, messages, idToken, chatId)) {
             const ev = handler.handleEvent(event)
@@ -186,16 +189,77 @@ async function processChat(
                 inThinking = false
               }
             } else if (ev.type === 'text_start') {
-              controller.enqueue(encoder.encode(buildContentBlockStart(blockIdx, 'text')))
-              inText = true
-            } else if (ev.type === 'text_delta' && ev.delta) {
-              if (!inText) {
+              if (!hasTools) {
                 controller.enqueue(encoder.encode(buildContentBlockStart(blockIdx, 'text')))
                 inText = true
               }
+            } else if (ev.type === 'text_delta' && ev.delta) {
               fullText += ev.delta
-              controller.enqueue(encoder.encode(buildContentBlockDelta(blockIdx, ev.delta)))
+
+              if (hasTools) {
+                // 缓冲文本，检测并过滤 <tool_use> 块
+                textBuffer += ev.delta
+
+                // 检测是否进入 <tool_use> 块
+                const toolUseStart = textBuffer.indexOf('<tool_use')
+                if (toolUseStart !== -1 && !inToolUseXml) {
+                  // 输出 <tool_use> 之前的文本
+                  const beforeToolUse = textBuffer.substring(0, toolUseStart)
+                  if (beforeToolUse) {
+                    if (!inText) {
+                      controller.enqueue(encoder.encode(buildContentBlockStart(blockIdx, 'text')))
+                      inText = true
+                    }
+                    controller.enqueue(encoder.encode(buildContentBlockDelta(blockIdx, beforeToolUse)))
+                  }
+                  textBuffer = textBuffer.substring(toolUseStart)
+                  inToolUseXml = true
+                }
+
+                // 检测 </tool_use> 结束
+                if (inToolUseXml) {
+                  const toolUseEnd = textBuffer.indexOf('</tool_use>')
+                  if (toolUseEnd !== -1) {
+                    // 跳过整个 tool_use 块
+                    textBuffer = textBuffer.substring(toolUseEnd + '</tool_use>'.length)
+                    inToolUseXml = false
+                  }
+                }
+
+                // 如果不在 tool_use 块中，输出安全的文本
+                if (!inToolUseXml && textBuffer) {
+                  // 保留可能是 <tool_use 开始的部分
+                  const safeEnd = textBuffer.lastIndexOf('<')
+                  if (safeEnd > 0) {
+                    const safeText = textBuffer.substring(0, safeEnd)
+                    if (safeText) {
+                      if (!inText) {
+                        controller.enqueue(encoder.encode(buildContentBlockStart(blockIdx, 'text')))
+                        inText = true
+                      }
+                      controller.enqueue(encoder.encode(buildContentBlockDelta(blockIdx, safeText)))
+                    }
+                    textBuffer = textBuffer.substring(safeEnd)
+                  }
+                }
+              } else {
+                // 没有 tools，直接输出
+                if (!inText) {
+                  controller.enqueue(encoder.encode(buildContentBlockStart(blockIdx, 'text')))
+                  inText = true
+                }
+                controller.enqueue(encoder.encode(buildContentBlockDelta(blockIdx, ev.delta)))
+              }
             } else if (ev.type === 'text_end') {
+              // 输出剩余缓冲区（过滤掉 tool_use）
+              if (hasTools && textBuffer && !inToolUseXml) {
+                if (!inText) {
+                  controller.enqueue(encoder.encode(buildContentBlockStart(blockIdx, 'text')))
+                  inText = true
+                }
+                controller.enqueue(encoder.encode(buildContentBlockDelta(blockIdx, textBuffer)))
+                textBuffer = ''
+              }
               if (inText) {
                 controller.enqueue(encoder.encode(buildContentBlockStop(blockIdx)))
                 blockIdx++
