@@ -180,6 +180,8 @@ async function processChat(
           let inThinking = false
           let inText = false
           let fullText = ''
+          let textBuffer = ''  // 缓冲区，用于检测 tool_use
+          let inToolUseBlock = false  // 是否在 tool_use 块中
 
           for await (const event of sendChat(gummieId, messages, idToken, chatId)) {
             const ev = handler.handleEvent(event)
@@ -200,16 +202,58 @@ async function processChat(
                 inThinking = false
               }
             } else if (ev.type === 'text_start') {
-              controller.enqueue(encoder.encode(buildContentBlockStart(blockIdx, 'text')))
-              inText = true
+              // 延迟开始 text block，等确认不是 tool_use
             } else if (ev.type === 'text_delta' && ev.delta) {
-              if (!inText) {
-                controller.enqueue(encoder.encode(buildContentBlockStart(blockIdx, 'text')))
-                inText = true
-              }
               fullText += ev.delta
-              controller.enqueue(encoder.encode(buildContentBlockDelta(blockIdx, ev.delta)))
+
+              if (hasTools) {
+                textBuffer += ev.delta
+
+                // 检测是否进入 tool_use 块
+                if (!inToolUseBlock && textBuffer.includes('<tool_use')) {
+                  inToolUseBlock = true
+                  // 输出 tool_use 之前的文本
+                  const beforeToolUse = textBuffer.split('<tool_use')[0]
+                  if (beforeToolUse.trim()) {
+                    if (!inText) {
+                      controller.enqueue(encoder.encode(buildContentBlockStart(blockIdx, 'text')))
+                      inText = true
+                    }
+                    controller.enqueue(encoder.encode(buildContentBlockDelta(blockIdx, beforeToolUse)))
+                  }
+                }
+
+                // 如果不在 tool_use 块中，正常输出
+                if (!inToolUseBlock) {
+                  // 保留可能是 tool_use 开始的部分
+                  const safeOutput = textBuffer.length > 10 ? textBuffer.slice(0, -10) : ''
+                  if (safeOutput) {
+                    if (!inText) {
+                      controller.enqueue(encoder.encode(buildContentBlockStart(blockIdx, 'text')))
+                      inText = true
+                    }
+                    controller.enqueue(encoder.encode(buildContentBlockDelta(blockIdx, safeOutput)))
+                    textBuffer = textBuffer.slice(safeOutput.length)
+                  }
+                }
+              } else {
+                // 没有 tools，直接输出
+                if (!inText) {
+                  controller.enqueue(encoder.encode(buildContentBlockStart(blockIdx, 'text')))
+                  inText = true
+                }
+                controller.enqueue(encoder.encode(buildContentBlockDelta(blockIdx, ev.delta)))
+              }
             } else if (ev.type === 'text_end') {
+              // 输出剩余缓冲区（如果没有 tool_use）
+              if (hasTools && textBuffer && !inToolUseBlock) {
+                if (!inText) {
+                  controller.enqueue(encoder.encode(buildContentBlockStart(blockIdx, 'text')))
+                  inText = true
+                }
+                controller.enqueue(encoder.encode(buildContentBlockDelta(blockIdx, textBuffer)))
+                textBuffer = ''
+              }
               if (inText) {
                 controller.enqueue(encoder.encode(buildContentBlockStop(blockIdx)))
                 blockIdx++
@@ -227,7 +271,8 @@ async function processChat(
 
               let stopReason = 'end_turn'
               if (hasTools) {
-                const { toolUses } = parseToolCalls(fullText)
+                const { remainingText, toolUses } = parseToolCalls(fullText)
+                // 如果有 tool calls，需要重新输出干净的文本（不含 XML）
                 if (toolUses.length) {
                   stopReason = 'tool_use'
                   for (const tu of toolUses) {
