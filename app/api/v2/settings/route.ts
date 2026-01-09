@@ -39,11 +39,11 @@ export async function POST(req: NextRequest) {
   const results: Array<{ accountId: string; gummieId: string; success: boolean; error?: string }> = []
 
   for (const account of accounts) {
-    if (!account.gummieId || !account.refreshToken || !account.userId) continue
+    if (!account.gummieId || !account.refreshToken) continue
 
     try {
-      const { idToken } = await getToken(account.refreshToken, account.userId)
-      await updateGummieConfig(account.gummieId, account.userId, { systemPrompt })
+      const { idToken, userId } = await getToken(account.id, account.refreshToken)
+      await updateGummieConfig(account.gummieId, userId, { systemPrompt })
       results.push({ accountId: account.id, gummieId: account.gummieId, success: true })
     } catch (err) {
       results.push({ accountId: account.id, gummieId: account.gummieId, success: false, error: String(err) })

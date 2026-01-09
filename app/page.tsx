@@ -22,24 +22,12 @@ interface Gummie {
   is_active: boolean
 }
 
-interface ChatHistory {
-  interaction_id: string
-  first_message: string
-  created_ts: string
-  creator_user_email: string
-}
-
-interface UserProfile {
-  user_email: string
-  subscription_tier: string
-  credit_limit: number
-}
-
 export default function AdminPage() {
   const [token, setToken] = useState('')
   const [accounts, setAccounts] = useState<Account[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
 
   // Login
   const [showLogin, setShowLogin] = useState(true)
@@ -49,31 +37,19 @@ export default function AdminPage() {
   const [showAddForm, setShowAddForm] = useState(false)
   const [formData, setFormData] = useState({ refreshToken: '', label: '', gummieId: '' })
 
-  // Selected account for details
+  // Selected account
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null)
   const [gummies, setGummies] = useState<Gummie[]>([])
-  const [chatHistory, setChatHistory] = useState<ChatHistory[]>([])
-  const [profile, setProfile] = useState<UserProfile | null>(null)
   const [credits, setCredits] = useState<number | null>(null)
 
-  // Gummie management
-  const [showCreateGummie, setShowCreateGummie] = useState(false)
-  const [newGummie, setNewGummie] = useState({ name: '', modelName: 'claude-sonnet-4-5', systemPrompt: '' })
+  // Global settings
+  const [globalSystemPrompt, setGlobalSystemPrompt] = useState('')
+  const [settingsLoading, setSettingsLoading] = useState(false)
 
   // Chat test
-  const [showChat, setShowChat] = useState(false)
   const [chatInput, setChatInput] = useState('')
   const [chatOutput, setChatOutput] = useState('')
   const [chatLoading, setChatLoading] = useState(false)
-
-  // Global settings
-  const [showSettings, setShowSettings] = useState(false)
-  const [globalSystemPrompt, setGlobalSystemPrompt] = useState('')
-  const [settingsLoading, setSettingsLoading] = useState(false)
-  const [settingsSaved, setSettingsSaved] = useState(false)
-
-  // Tab state
-  const [activeTab, setActiveTab] = useState<'accounts' | 'gummies' | 'history' | 'profile'>('accounts')
 
   useEffect(() => {
     const saved = localStorage.getItem('admin_token')
@@ -84,26 +60,24 @@ export default function AdminPage() {
   }, [])
 
   useEffect(() => {
-    if (token) loadAccounts()
+    if (token) {
+      loadAccounts()
+      loadGlobalSettings()
+    }
   }, [token])
-
-  useEffect(() => {
-    if (token && showSettings) loadGlobalSettings()
-  }, [token, showSettings])
 
   async function loadGlobalSettings() {
     try {
       const resp = await fetch('/api/v2/settings', { headers: { Authorization: `Bearer ${token}` } })
       const data = await resp.json()
       setGlobalSystemPrompt(data.systemPrompt || '')
-    } catch {
-      // ignore
-    }
+    } catch {}
   }
 
   async function saveGlobalSettings() {
     setSettingsLoading(true)
-    setSettingsSaved(false)
+    setError('')
+    setSuccess('')
     try {
       const resp = await fetch('/api/v2/settings', {
         method: 'POST',
@@ -112,13 +86,13 @@ export default function AdminPage() {
       })
       const data = await resp.json()
       if (resp.ok) {
-        setSettingsSaved(true)
-        setTimeout(() => setSettingsSaved(false), 3000)
+        setSuccess(`已同步到 ${data.syncedCount}/${data.totalCount} 个 Gummie`)
+        setTimeout(() => setSuccess(''), 3000)
       } else {
-        setError(data.error || 'Failed to save settings')
+        setError(data.error || '保存失败')
       }
     } catch {
-      setError('Network error')
+      setError('网络错误')
     } finally {
       setSettingsLoading(false)
     }
@@ -140,10 +114,10 @@ export default function AdminPage() {
         localStorage.setItem('admin_token', password)
         setShowLogin(false)
       } else {
-        setError(data.message || 'Login failed')
+        setError(data.message || '登录失败')
       }
     } catch {
-      setError('Network error')
+      setError('网络错误')
     } finally {
       setLoading(false)
     }
@@ -155,7 +129,7 @@ export default function AdminPage() {
       const data = await resp.json()
       setAccounts(data.accounts || [])
     } catch {
-      setError('Failed to load accounts')
+      setError('加载账号失败')
     }
   }
 
@@ -174,11 +148,13 @@ export default function AdminPage() {
         setShowAddForm(false)
         setFormData({ refreshToken: '', label: '', gummieId: '' })
         loadAccounts()
+        setSuccess('账号添加成功')
+        setTimeout(() => setSuccess(''), 3000)
       } else {
-        setError(data.error || 'Failed to add account')
+        setError(data.error || '添加失败')
       }
     } catch {
-      setError('Network error')
+      setError('网络错误')
     } finally {
       setLoading(false)
     }
@@ -193,12 +169,12 @@ export default function AdminPage() {
       })
       loadAccounts()
     } catch {
-      setError('Failed to update account')
+      setError('更新失败')
     }
   }
 
   async function deleteAccount(id: string) {
-    if (!confirm('Delete this account?')) return
+    if (!confirm('确定删除此账号？')) return
     try {
       await fetch(`/api/v2/accounts/${id}`, {
         method: 'DELETE',
@@ -207,14 +183,14 @@ export default function AdminPage() {
       loadAccounts()
       if (selectedAccount?.id === id) setSelectedAccount(null)
     } catch {
-      setError('Failed to delete account')
+      setError('删除失败')
     }
   }
 
   async function selectAccount(account: Account) {
     setSelectedAccount(account)
-    setActiveTab('gummies')
-    await Promise.all([loadGummies(account.id), loadProfile(account.id)])
+    loadGummies(account.id)
+    loadCredits(account.id)
   }
 
   async function loadGummies(accountId: string) {
@@ -229,67 +205,15 @@ export default function AdminPage() {
     }
   }
 
-  async function loadChatHistory(accountId: string, gummieId: string) {
-    try {
-      const resp = await fetch(`/api/v2/chats?accountId=${accountId}&gummieId=${gummieId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      const data = await resp.json()
-      setChatHistory(data.chats || [])
-    } catch {
-      setChatHistory([])
-    }
-  }
-
-  async function loadProfile(accountId: string) {
+  async function loadCredits(accountId: string) {
     try {
       const resp = await fetch(`/api/v2/profile?accountId=${accountId}`, {
         headers: { Authorization: `Bearer ${token}` },
       })
       const data = await resp.json()
-      setProfile(data.profile || null)
       setCredits(data.credits ?? null)
     } catch {
-      setProfile(null)
       setCredits(null)
-    }
-  }
-
-  async function handleCreateGummie(e: React.FormEvent) {
-    e.preventDefault()
-    if (!selectedAccount) return
-    setLoading(true)
-    try {
-      const resp = await fetch('/api/v2/gummies', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ accountId: selectedAccount.id, ...newGummie }),
-      })
-      if (resp.ok) {
-        setShowCreateGummie(false)
-        setNewGummie({ name: '', modelName: 'claude-sonnet-4-5', systemPrompt: '' })
-        loadGummies(selectedAccount.id)
-      } else {
-        const data = await resp.json()
-        setError(data.error || 'Failed to create gummie')
-      }
-    } catch {
-      setError('Network error')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  async function deleteGummie(gummieId: string) {
-    if (!selectedAccount || !confirm('Delete this gummie?')) return
-    try {
-      await fetch(`/api/v2/gummies/${gummieId}?accountId=${selectedAccount.id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      loadGummies(selectedAccount.id)
-    } catch {
-      setError('Failed to delete gummie')
     }
   }
 
@@ -303,8 +227,10 @@ export default function AdminPage() {
       })
       loadAccounts()
       setSelectedAccount({ ...selectedAccount, gummieId })
+      setSuccess('已设为默认')
+      setTimeout(() => setSuccess(''), 2000)
     } catch {
-      setError('Failed to set default gummie')
+      setError('设置失败')
     }
   }
 
@@ -338,7 +264,7 @@ export default function AdminPage() {
         }
       }
     } catch {
-      setChatOutput('Error: Failed to send message')
+      setChatOutput('错误：发送失败')
     } finally {
       setChatLoading(false)
     }
@@ -354,20 +280,20 @@ export default function AdminPage() {
 
   if (showLogin) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
+      <div className="min-h-screen flex items-center justify-center bg-zinc-950 p-4">
         <div className="w-full max-w-sm">
-          <h1 className="text-2xl font-bold mb-6 text-center">Gumloop 2API</h1>
+          <h1 className="text-2xl font-bold mb-6 text-center text-white">Gumloop 2API</h1>
           <form onSubmit={handleLogin} className="space-y-4">
             <input
               type="password"
-              placeholder="Admin Password"
+              placeholder="管理密码"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-2 bg-zinc-800 border border-zinc-700 rounded focus:outline-none focus:border-blue-500"
+              className="w-full px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:border-blue-500"
             />
-            {error && <p className="text-red-500 text-sm">{error}</p>}
-            <button type="submit" disabled={loading} className="w-full py-2 bg-blue-600 hover:bg-blue-700 rounded font-medium disabled:opacity-50">
-              {loading ? 'Loading...' : 'Login'}
+            {error && <p className="text-red-400 text-sm">{error}</p>}
+            <button type="submit" disabled={loading} className="w-full py-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-medium text-white disabled:opacity-50">
+              {loading ? '登录中...' : '登录'}
             </button>
           </form>
         </div>
@@ -376,312 +302,203 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen p-4 md:p-8">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold">Gumloop 2API</h1>
-          <div className="flex gap-2">
-            <button onClick={() => setShowSettings(!showSettings)} className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded">
-              {showSettings ? 'Hide Settings' : 'Settings'}
-            </button>
-            <button onClick={() => setShowChat(!showChat)} className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded">
-              {showChat ? 'Hide Chat' : 'Test Chat'}
-            </button>
-            <button onClick={handleLogout} className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded">
-              Logout
+    <div className="min-h-screen bg-zinc-950 text-white">
+      {/* Header */}
+      <div className="border-b border-zinc-800 px-4 py-3">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <h1 className="text-lg font-bold">Gumloop 2API</h1>
+          <button onClick={handleLogout} className="text-sm text-zinc-400 hover:text-white">退出</button>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto p-4 space-y-4">
+        {/* Alerts */}
+        {error && (
+          <div className="p-3 bg-red-900/30 border border-red-800 rounded-lg text-red-300 text-sm flex justify-between">
+            {error}
+            <button onClick={() => setError('')} className="text-red-400 hover:text-red-300">×</button>
+          </div>
+        )}
+        {success && (
+          <div className="p-3 bg-green-900/30 border border-green-800 rounded-lg text-green-300 text-sm">
+            {success}
+          </div>
+        )}
+
+        {/* Global System Prompt */}
+        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-medium">全局 System Prompt</h2>
+            <button
+              onClick={saveGlobalSettings}
+              disabled={settingsLoading}
+              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 rounded text-sm disabled:opacity-50"
+            >
+              {settingsLoading ? '同步中...' : '保存并同步'}
             </button>
           </div>
+          <textarea
+            value={globalSystemPrompt}
+            onChange={(e) => setGlobalSystemPrompt(e.target.value)}
+            placeholder="设置后将应用到所有启用账号的 Gummie..."
+            rows={3}
+            className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-sm font-mono placeholder-zinc-500 focus:outline-none focus:border-blue-500 resize-none"
+          />
         </div>
 
-        {error && (
-          <div className="mb-4 p-3 bg-red-900/50 border border-red-700 rounded text-red-200">
-            {error}
-            <button onClick={() => setError('')} className="ml-2 text-red-400 hover:text-red-300">×</button>
-          </div>
-        )}
-
-        {/* Global Settings */}
-        {showSettings && (
-          <div className="mb-6 p-4 bg-zinc-900 border border-zinc-800 rounded-lg">
-            <h2 className="text-lg font-semibold mb-4">Global System Prompt</h2>
-            <p className="text-sm text-zinc-400 mb-4">
-              Set a global system prompt that will be applied to all enabled accounts&apos; Gummies.
-              Each API request creates a new conversation to prevent context pollution.
-            </p>
-            <textarea
-              value={globalSystemPrompt}
-              onChange={(e) => setGlobalSystemPrompt(e.target.value)}
-              placeholder="Enter global system prompt..."
-              rows={6}
-              className="w-full px-4 py-2 bg-zinc-800 border border-zinc-700 rounded focus:outline-none focus:border-blue-500 font-mono text-sm"
-            />
-            <div className="flex items-center gap-4 mt-4">
+        {/* Main Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {/* Accounts */}
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg">
+            <div className="flex items-center justify-between p-3 border-b border-zinc-800">
+              <span className="font-medium">账号 ({accounts.length})</span>
               <button
-                onClick={saveGlobalSettings}
-                disabled={settingsLoading}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded font-medium disabled:opacity-50"
+                onClick={() => setShowAddForm(!showAddForm)}
+                className="px-2 py-1 bg-zinc-800 hover:bg-zinc-700 rounded text-sm"
               >
-                {settingsLoading ? 'Saving...' : 'Save & Sync to All Gummies'}
-              </button>
-              {settingsSaved && <span className="text-green-500 text-sm">Saved and synced successfully!</span>}
-            </div>
-          </div>
-        )}
-
-        {/* Chat Test */}
-        {showChat && (
-          <div className="mb-6 p-4 bg-zinc-900 border border-zinc-800 rounded-lg">
-            <h2 className="text-lg font-semibold mb-4">Chat Test</h2>
-            <form onSubmit={handleChat} className="space-y-4">
-              <textarea
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                placeholder="Enter your message..."
-                rows={3}
-                className="w-full px-4 py-2 bg-zinc-800 border border-zinc-700 rounded focus:outline-none focus:border-blue-500"
-              />
-              <button type="submit" disabled={chatLoading} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded font-medium disabled:opacity-50">
-                {chatLoading ? 'Sending...' : 'Send'}
-              </button>
-            </form>
-            {chatOutput && <div className="mt-4 p-4 bg-zinc-800 rounded whitespace-pre-wrap">{chatOutput}</div>}
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Accounts List */}
-          <div className="lg:col-span-1">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold">Accounts ({accounts.length})</h2>
-              <button onClick={() => setShowAddForm(!showAddForm)} className="px-3 py-1 bg-green-600 hover:bg-green-700 rounded text-sm">
-                {showAddForm ? 'Cancel' : 'Add'}
+                {showAddForm ? '取消' : '添加'}
               </button>
             </div>
 
             {showAddForm && (
-              <div className="mb-4 p-4 bg-zinc-900 border border-zinc-800 rounded-lg">
-                <form onSubmit={handleAddAccount} className="space-y-3">
-                  <input
-                    type="text"
-                    placeholder="Label (optional)"
-                    value={formData.label}
-                    onChange={(e) => setFormData({ ...formData, label: e.target.value })}
-                    className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-sm focus:outline-none focus:border-blue-500"
-                  />
-                  <textarea
-                    placeholder="Refresh Token *"
-                    value={formData.refreshToken}
-                    onChange={(e) => setFormData({ ...formData, refreshToken: e.target.value })}
-                    rows={3}
-                    className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-sm focus:outline-none focus:border-blue-500"
-                    required
-                  />
-                  <input
-                    type="text"
-                    placeholder="Default Gummie ID (optional)"
-                    value={formData.gummieId}
-                    onChange={(e) => setFormData({ ...formData, gummieId: e.target.value })}
-                    className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-sm focus:outline-none focus:border-blue-500"
-                  />
-                  <button type="submit" disabled={loading} className="w-full py-2 bg-green-600 hover:bg-green-700 rounded text-sm disabled:opacity-50">
-                    {loading ? 'Adding...' : 'Add Account'}
-                  </button>
-                </form>
-              </div>
+              <form onSubmit={handleAddAccount} className="p-3 border-b border-zinc-800 space-y-2">
+                <input
+                  type="text"
+                  placeholder="标签（可选）"
+                  value={formData.label}
+                  onChange={(e) => setFormData({ ...formData, label: e.target.value })}
+                  className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-sm focus:outline-none focus:border-blue-500"
+                />
+                <textarea
+                  placeholder="Refresh Token *"
+                  value={formData.refreshToken}
+                  onChange={(e) => setFormData({ ...formData, refreshToken: e.target.value })}
+                  rows={2}
+                  className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-sm font-mono focus:outline-none focus:border-blue-500 resize-none"
+                  required
+                />
+                <input
+                  type="text"
+                  placeholder="Gummie ID（可选）"
+                  value={formData.gummieId}
+                  onChange={(e) => setFormData({ ...formData, gummieId: e.target.value })}
+                  className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-sm focus:outline-none focus:border-blue-500"
+                />
+                <button type="submit" disabled={loading} className="w-full py-2 bg-green-600 hover:bg-green-700 rounded text-sm disabled:opacity-50">
+                  {loading ? '添加中...' : '添加账号'}
+                </button>
+              </form>
             )}
 
-            <div className="space-y-2">
+            <div className="divide-y divide-zinc-800 max-h-96 overflow-y-auto">
               {accounts.map((account) => (
                 <div
                   key={account.id}
                   onClick={() => selectAccount(account)}
-                  className={`p-3 bg-zinc-900 border rounded-lg cursor-pointer transition ${
-                    selectedAccount?.id === account.id ? 'border-blue-500' : 'border-zinc-800 hover:border-zinc-700'
-                  }`}
+                  className={`p-3 cursor-pointer hover:bg-zinc-800/50 ${selectedAccount?.id === account.id ? 'bg-zinc-800' : ''}`}
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="font-medium truncate">{account.label || account.id}</div>
-                    <span className={`px-2 py-0.5 rounded text-xs ${account.enabled ? 'bg-green-600' : 'bg-zinc-700'}`}>
-                      {account.enabled ? 'ON' : 'OFF'}
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-medium text-sm truncate">{account.label || account.id}</span>
+                    <span className={`px-1.5 py-0.5 rounded text-xs ${account.enabled ? 'bg-green-600' : 'bg-zinc-700'}`}>
+                      {account.enabled ? '启用' : '禁用'}
                     </span>
                   </div>
-                  <div className="text-xs text-zinc-500 mt-1">
-                    Gummie: {account.gummieId || 'Not set'}
-                  </div>
+                  <div className="text-xs text-zinc-500 truncate">Gummie: {account.gummieId || '未设置'}</div>
                   <div className="flex gap-2 mt-2">
                     <button
                       onClick={(e) => { e.stopPropagation(); toggleAccount(account.id, !account.enabled) }}
-                      className="px-2 py-1 bg-zinc-800 hover:bg-zinc-700 rounded text-xs"
+                      className="px-2 py-1 bg-zinc-700 hover:bg-zinc-600 rounded text-xs"
                     >
-                      Toggle
+                      {account.enabled ? '禁用' : '启用'}
                     </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); deleteAccount(account.id) }}
-                      className="px-2 py-1 bg-red-600 hover:bg-red-700 rounded text-xs"
+                      className="px-2 py-1 bg-red-600/80 hover:bg-red-600 rounded text-xs"
                     >
-                      Delete
+                      删除
                     </button>
                   </div>
                 </div>
               ))}
-              {accounts.length === 0 && <div className="text-center text-zinc-500 py-8">No accounts</div>}
+              {accounts.length === 0 && <div className="p-4 text-center text-zinc-500 text-sm">暂无账号</div>}
             </div>
           </div>
 
           {/* Account Details */}
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 space-y-4">
             {selectedAccount ? (
-              <div className="bg-zinc-900 border border-zinc-800 rounded-lg">
-                {/* Tabs */}
-                <div className="flex border-b border-zinc-800">
-                  {(['gummies', 'history', 'profile'] as const).map((tab) => (
-                    <button
-                      key={tab}
-                      onClick={() => {
-                        setActiveTab(tab)
-                        if (tab === 'history' && selectedAccount.gummieId) {
-                          loadChatHistory(selectedAccount.id, selectedAccount.gummieId)
-                        }
-                      }}
-                      className={`px-4 py-3 text-sm font-medium ${
-                        activeTab === tab ? 'border-b-2 border-blue-500 text-blue-500' : 'text-zinc-400 hover:text-white'
-                      }`}
-                    >
-                      {tab === 'gummies' ? 'Gummies' : tab === 'history' ? 'Chat History' : 'Profile & Credits'}
-                    </button>
-                  ))}
+              <>
+                {/* Credits */}
+                <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-sm text-zinc-400">剩余额度</div>
+                      <div className="text-2xl font-bold text-green-400">{credits ?? '-'}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm text-zinc-400">账号</div>
+                      <div className="font-medium">{selectedAccount.label || selectedAccount.id}</div>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="p-4">
-                  {/* Gummies Tab */}
-                  {activeTab === 'gummies' && (
-                    <div>
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="font-semibold">Gummies ({gummies.length})</h3>
-                        <button onClick={() => setShowCreateGummie(!showCreateGummie)} className="px-3 py-1 bg-green-600 hover:bg-green-700 rounded text-sm">
-                          {showCreateGummie ? 'Cancel' : 'Create'}
-                        </button>
-                      </div>
-
-                      {showCreateGummie && (
-                        <form onSubmit={handleCreateGummie} className="mb-4 p-3 bg-zinc-800 rounded space-y-3">
-                          <input
-                            type="text"
-                            placeholder="Name *"
-                            value={newGummie.name}
-                            onChange={(e) => setNewGummie({ ...newGummie, name: e.target.value })}
-                            className="w-full px-3 py-2 bg-zinc-700 border border-zinc-600 rounded text-sm"
-                            required
-                          />
-                          <select
-                            value={newGummie.modelName}
-                            onChange={(e) => setNewGummie({ ...newGummie, modelName: e.target.value })}
-                            className="w-full px-3 py-2 bg-zinc-700 border border-zinc-600 rounded text-sm"
-                          >
-                            <option value="claude-sonnet-4-5">claude-sonnet-4-5</option>
-                            <option value="claude-opus-4-5">claude-opus-4-5</option>
-                            <option value="claude-haiku-4-5">claude-haiku-4-5</option>
-                          </select>
-                          <textarea
-                            placeholder="System Prompt (optional)"
-                            value={newGummie.systemPrompt}
-                            onChange={(e) => setNewGummie({ ...newGummie, systemPrompt: e.target.value })}
-                            rows={3}
-                            className="w-full px-3 py-2 bg-zinc-700 border border-zinc-600 rounded text-sm"
-                          />
-                          <button type="submit" disabled={loading} className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded text-sm disabled:opacity-50">
-                            Create
-                          </button>
-                        </form>
-                      )}
-
-                      <div className="space-y-2">
-                        {gummies.map((g) => (
-                          <div key={g.gummie_id} className="p-3 bg-zinc-800 rounded flex items-center justify-between">
-                            <div>
-                              <div className="font-medium flex items-center gap-2">
-                                {g.name}
-                                {selectedAccount.gummieId === g.gummie_id && (
-                                  <span className="px-2 py-0.5 bg-blue-600 rounded text-xs">Default</span>
-                                )}
-                              </div>
-                              <div className="text-xs text-zinc-500">{g.model_name} | {g.gummie_id}</div>
-                            </div>
-                            <div className="flex gap-2">
-                              {selectedAccount.gummieId !== g.gummie_id && (
-                                <button onClick={() => setDefaultGummie(g.gummie_id)} className="px-2 py-1 bg-blue-600 hover:bg-blue-700 rounded text-xs">
-                                  Set Default
-                                </button>
-                              )}
-                              <button
-                                onClick={() => { loadChatHistory(selectedAccount.id, g.gummie_id); setActiveTab('history') }}
-                                className="px-2 py-1 bg-zinc-700 hover:bg-zinc-600 rounded text-xs"
-                              >
-                                History
-                              </button>
-                              <button onClick={() => deleteGummie(g.gummie_id)} className="px-2 py-1 bg-red-600 hover:bg-red-700 rounded text-xs">
-                                Delete
-                              </button>
-                            </div>
+                {/* Gummies */}
+                <div className="bg-zinc-900 border border-zinc-800 rounded-lg">
+                  <div className="p-3 border-b border-zinc-800">
+                    <span className="font-medium">Gummie 列表 ({gummies.length})</span>
+                  </div>
+                  <div className="divide-y divide-zinc-800 max-h-64 overflow-y-auto">
+                    {gummies.map((g) => (
+                      <div key={g.gummie_id} className="p-3 flex items-center justify-between">
+                        <div>
+                          <div className="font-medium text-sm flex items-center gap-2">
+                            {g.name}
+                            {selectedAccount.gummieId === g.gummie_id && (
+                              <span className="px-1.5 py-0.5 bg-blue-600 rounded text-xs">默认</span>
+                            )}
                           </div>
-                        ))}
-                        {gummies.length === 0 && <div className="text-center text-zinc-500 py-4">No gummies</div>}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Chat History Tab */}
-                  {activeTab === 'history' && (
-                    <div>
-                      <h3 className="font-semibold mb-4">Chat History</h3>
-                      <div className="space-y-2">
-                        {chatHistory.map((chat) => (
-                          <div key={chat.interaction_id} className="p-3 bg-zinc-800 rounded">
-                            <div className="text-sm truncate">{chat.first_message}</div>
-                            <div className="text-xs text-zinc-500 mt-1">
-                              {new Date(chat.created_ts).toLocaleString()} | {chat.creator_user_email}
-                            </div>
-                          </div>
-                        ))}
-                        {chatHistory.length === 0 && <div className="text-center text-zinc-500 py-4">No chat history</div>}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Profile Tab */}
-                  {activeTab === 'profile' && (
-                    <div>
-                      <h3 className="font-semibold mb-4">Profile & Credits</h3>
-                      {profile ? (
-                        <div className="space-y-3">
-                          <div className="p-4 bg-zinc-800 rounded">
-                            <div className="text-3xl font-bold text-green-500">{credits ?? 0}</div>
-                            <div className="text-sm text-zinc-400">Credits Remaining</div>
-                          </div>
-                          <div className="grid grid-cols-2 gap-3">
-                            <div className="p-3 bg-zinc-800 rounded">
-                              <div className="text-xs text-zinc-500">Email</div>
-                              <div className="text-sm">{profile.user_email}</div>
-                            </div>
-                            <div className="p-3 bg-zinc-800 rounded">
-                              <div className="text-xs text-zinc-500">Subscription</div>
-                              <div className="text-sm capitalize">{profile.subscription_tier}</div>
-                            </div>
-                          </div>
+                          <div className="text-xs text-zinc-500">{g.model_name}</div>
                         </div>
-                      ) : (
-                        <div className="text-center text-zinc-500 py-4">Loading profile...</div>
-                      )}
-                    </div>
-                  )}
+                        {selectedAccount.gummieId !== g.gummie_id && (
+                          <button
+                            onClick={() => setDefaultGummie(g.gummie_id)}
+                            className="px-2 py-1 bg-zinc-700 hover:bg-zinc-600 rounded text-xs"
+                          >
+                            设为默认
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    {gummies.length === 0 && <div className="p-4 text-center text-zinc-500 text-sm">暂无 Gummie</div>}
+                  </div>
                 </div>
-              </div>
+              </>
             ) : (
               <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-8 text-center text-zinc-500">
-                Select an account to view details
+                选择左侧账号查看详情
               </div>
             )}
+
+            {/* Chat Test */}
+            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+              <h3 className="font-medium mb-3">接口测试</h3>
+              <form onSubmit={handleChat} className="space-y-3">
+                <input
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  placeholder="输入测试消息..."
+                  className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-sm focus:outline-none focus:border-blue-500"
+                />
+                <button type="submit" disabled={chatLoading} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded text-sm disabled:opacity-50">
+                  {chatLoading ? '发送中...' : '发送'}
+                </button>
+              </form>
+              {chatOutput && (
+                <div className="mt-3 p-3 bg-zinc-800 rounded text-sm whitespace-pre-wrap max-h-48 overflow-y-auto">
+                  {chatOutput}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
