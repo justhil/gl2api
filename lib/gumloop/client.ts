@@ -87,6 +87,9 @@ export async function updateGummieConfig(
 
   if (Object.keys(payload).length === 0) return
 
+  console.log('[updateGummieConfig] gummieId:', gummieId)
+  console.log('[updateGummieConfig] payload:', JSON.stringify(payload, null, 2))
+
   const resp = await fetch(`${API_BASE}/gummies/${gummieId}`, {
     method: 'PATCH',
     headers: {
@@ -101,8 +104,12 @@ export async function updateGummieConfig(
 
   if (!resp.ok) {
     const error = await resp.text()
+    console.log('[updateGummieConfig] error:', error)
     throw new Error(`Failed to update gummie config: ${error}`)
   }
+
+  const result = await resp.json()
+  console.log('[updateGummieConfig] success:', JSON.stringify(result, null, 2))
 }
 
 export async function* sendChat(

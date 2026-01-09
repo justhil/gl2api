@@ -61,7 +61,7 @@ export function buildPing(): string {
 export function buildMessageDelta(outputTokens: number, stopReason = 'end_turn'): string {
   return `event: message_delta\ndata: ${JSON.stringify({
     type: 'message_delta',
-    delta: { stop_reason: stopReason },
+    delta: { stop_reason: stopReason, stop_sequence: null },
     usage: { output_tokens: outputTokens },
   })}\n\n`
 }
