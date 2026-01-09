@@ -1,13 +1,5 @@
 const API_BASE = 'https://api.gumloop.com'
 
-function generateUploadId(): string {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0
-    const v = c === 'x' ? r : (r & 0x3) | 0x8
-    return v.toString(16)
-  })
-}
-
 export interface UploadedImage {
   filename: string
   media_type: string
@@ -23,6 +15,7 @@ export interface ImagePart {
 
 /**
  * 上传图片到 Gumloop
+ * 使用官方 /api/v1/upload_file API
  *
  * @param base64Data - 图片的 base64 数据（不含 data:xxx;base64, 前缀）
  * @param mediaType - 图片 MIME 类型，如 image/jpeg, image/png
@@ -38,66 +31,41 @@ export async function uploadImage(
   userId: string,
   idToken: string
 ): Promise<UploadedImage> {
-  const uploadId = generateUploadId()
   const ext = mediaType.split('/')[1] || 'jpg'
   const filename = `custom_agent_interactions/${chatId}/image_${Date.now()}.${ext}`
 
-  // 先上传 chunk（对于小图片，只需要一个 chunk）
-  const chunkResp = await fetch(`${API_BASE}/upload_chunk`, {
+  // 使用官方 upload_file API
+  const uploadResp = await fetch(`${API_BASE}/api/v1/upload_file`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${idToken}`,
-      'x-auth-key': userId,
       'Content-Type': 'application/json',
       'Referer': 'https://www.gumloop.com/',
       'Origin': 'https://www.gumloop.com',
     },
     body: JSON.stringify({
       file_name: filename,
-      chunk_index: 0,
+      file_content: base64Data,
       user_id: userId,
-      upload_id: uploadId,
-      chunk_data: base64Data,
     }),
   })
 
-  if (!chunkResp.ok) {
-    throw new Error(`Failed to upload chunk: ${await chunkResp.text()}`)
+  if (!uploadResp.ok) {
+    throw new Error(`Failed to upload file: ${await uploadResp.text()}`)
   }
 
-  // 合并 chunks 并获取 preview_url
-  const mergeResp = await fetch(`${API_BASE}/merge_chunks`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${idToken}`,
-      'x-auth-key': userId,
-      'Content-Type': 'application/json',
-      'Referer': 'https://www.gumloop.com/',
-      'Origin': 'https://www.gumloop.com',
-    },
-    body: JSON.stringify({
-      file_name: filename,
-      total_chunks: 1,
-      user_id: userId,
-      upload_id: uploadId,
-      content_type: mediaType,
-      return_preview_url: true,
-    }),
-  })
-
-  if (!mergeResp.ok) {
-    throw new Error(`Failed to merge chunks: ${await mergeResp.text()}`)
+  const uploadResult = await uploadResp.json()
+  if (!uploadResult.success) {
+    throw new Error(`Upload failed: ${JSON.stringify(uploadResult)}`)
   }
 
-  const result = await mergeResp.json()
-  if (!result.success || !result.preview_url) {
-    throw new Error(`Upload failed: ${JSON.stringify(result)}`)
-  }
+  // 获取预览 URL - 构造 GCS URL
+  const previewUrl = `https://storage.googleapis.com/agenthub/uid-${userId}/${filename}`
 
   return {
     filename,
     media_type: mediaType,
-    preview_url: result.preview_url,
+    preview_url: previewUrl,
   }
 }
 
