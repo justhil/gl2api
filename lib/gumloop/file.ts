@@ -1,5 +1,18 @@
 const API_BASE = 'https://api.gumloop.com'
 
+// Base64 decode compatible with both Node.js and Deno
+function base64ToUint8Array(base64: string): Uint8Array {
+  if (typeof Buffer !== 'undefined') {
+    return Buffer.from(base64, 'base64')
+  }
+  const binaryString = atob(base64)
+  const bytes = new Uint8Array(binaryString.length)
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i)
+  }
+  return bytes
+}
+
 export interface UploadedFile {
   filename: string
   media_type: string
@@ -70,8 +83,8 @@ export async function uploadFile(
   const filename = `custom_agent_interactions/${chatId}/${prefix}_${Date.now()}.${ext}`
 
   const formData = new FormData()
-  const binaryData = Buffer.from(base64Data, 'base64')
-  const blob = new Blob([binaryData], { type: 'application/octet-stream' })
+  const binaryData = base64ToUint8Array(base64Data)
+  const blob = new Blob([binaryData as BlobPart], { type: 'application/octet-stream' })
   formData.append('file', blob, filename)
   formData.append('user_id', userId)
   formData.append('chunk_index', '0')
