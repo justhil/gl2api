@@ -4,7 +4,7 @@ import { verifyApiKey } from '@/lib/utils/api-key'
 import { mapModel } from '@/lib/utils/model-map'
 import { getEnabledAccount, getGummieIdForModel } from '@/lib/db/accounts'
 import { getToken } from '@/lib/cache/token'
-import { sendChat, updateGummieConfig, generateChatId, type Message } from '@/lib/gumloop/client'
+import { sendChat, generateChatId, type Message } from '@/lib/gumloop/client'
 import { GumloopStreamHandler } from '@/lib/gumloop/handler'
 import {
   buildMessageStart,
@@ -96,35 +96,18 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Update gummie config if needed
   const chatId = generateChatId()
-  if (data.tools || data.system) {
-    console.log('[messages] has tools:', data.tools?.length, 'has system:', !!data.system)
-    try {
-      await updateGummieConfig(gummieId, userId, idToken, {
-        // 当有 tools 时，如果没有 system 则传空字符串清除旧的 system_prompt
-        systemPrompt: systemText ?? (data.tools ? '' : undefined),
-        tools: data.tools?.map((t) => ({
-          name: t.name,
-          description: t.description || '',
-          input_schema: t.input_schema,
-        })),
-        modelName: model,
-      })
-    } catch (err) {
-      console.log('[messages] updateGummieConfig failed:', err)
-      // Fallback to text-based tools
-      const convertedMessages = convertMessagesWithTools(
+
+  // 工具定义通过消息文本传递（Gumloop 网页端的方式）
+  // 不使用 REST API 配置工具，而是将工具定义嵌入到用户消息中
+  const convertedMessages = hasTools || systemText
+    ? convertMessagesWithTools(
         data.messages.map((m) => ({ role: m.role, content: m.content })),
         data.tools,
         systemText
       )
-      const messages = await processImagesInMessages(convertedMessages, chatId, userId, idToken)
-      return processChat(gummieId, messages, model, data, hasTools, idToken, chatId)
-    }
-  }
+    : convertMessagesSimple(data.messages.map((m) => ({ role: m.role, content: m.content })))
 
-  const convertedMessages = convertMessagesSimple(data.messages.map((m) => ({ role: m.role, content: m.content })))
   const messages = await processImagesInMessages(convertedMessages, chatId, userId, idToken)
   return processChat(gummieId, messages, model, data, hasTools, idToken, chatId)
 }
