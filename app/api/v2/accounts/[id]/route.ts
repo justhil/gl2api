@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { verifyAdmin } from '@/lib/utils/admin'
 import { getAccount, updateAccount, deleteAccount } from '@/lib/db/accounts'
+import { deleteGummie } from '@/lib/gumloop/api'
+import { getToken } from '@/lib/cache/token'
 
 const AccountUpdateSchema = z.object({
   label: z.string().optional(),
@@ -51,6 +53,28 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   }
 
   const { id } = await params
+  const account = await getAccount(id)
+  if (!account) {
+    return NextResponse.json({ error: 'Account not found' }, { status: 404 })
+  }
+
+  // 删除账号关联的所有 gummies
+  if (account.gummies && account.refreshToken && account.userId) {
+    try {
+      const tokenData = await getToken(account.id, account.refreshToken)
+      const gummieIds = Object.values(account.gummies)
+      for (const gummieId of gummieIds) {
+        try {
+          await deleteGummie(gummieId, tokenData.idToken, account.userId)
+        } catch (err) {
+          console.error(`Failed to delete gummie ${gummieId}:`, err)
+        }
+      }
+    } catch (err) {
+      console.error('Failed to get token for deleting gummies:', err)
+    }
+  }
+
   const success = await deleteAccount(id)
   if (!success) {
     return NextResponse.json({ error: 'Account not found' }, { status: 404 })
