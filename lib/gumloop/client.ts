@@ -32,7 +32,7 @@ function formatMessages(messages: Message[]): GumloopMessage[] {
       return {
         id: msgId,
         role: 'assistant' as const,
-        parts: [{ id: `${msgId}_part`, type: 'text', text: msg.content }],
+        content: msg.content,
       }
     }
 
