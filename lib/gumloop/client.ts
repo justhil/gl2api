@@ -150,7 +150,9 @@ export async function* sendChat(
     try {
       const event = JSON.parse(data.toString()) as GumloopEvent
       push({ type: 'event', event })
-      if (event.type === 'finish' && event.final === true) {
+      // opus4.5 sends two finish events: first with final=false, then final=true
+      // other models send one finish event without final field (undefined)
+      if (event.type === 'finish' && event.final !== false) {
         ws.close()
       }
     } catch {
@@ -177,7 +179,7 @@ export async function* sendChat(
       break
     }
     yield item.event
-    if (item.event.type === 'finish' && item.event.final === true) {
+    if (item.event.type === 'finish' && item.event.final !== false) {
       break
     }
   }

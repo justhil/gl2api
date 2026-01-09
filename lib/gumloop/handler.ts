@@ -69,7 +69,9 @@ export class GumloopStreamHandler {
         return { type: 'text_end', index: this.blockIndex }
 
       case 'finish':
-        if (event.final !== true) {
+        // opus4.5 sends two finish events: first with final=false, then final=true
+        // other models send one finish event without final field
+        if (event.final === false) {
           return { type: 'finish_pending' }
         }
         this.finished = true
