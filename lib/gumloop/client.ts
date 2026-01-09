@@ -149,6 +149,7 @@ export async function* sendChat(
   ws.on('message', (data) => {
     try {
       const event = JSON.parse(data.toString()) as GumloopEvent
+      console.log('[WS] event:', event.type, event.delta ? `delta=${event.delta.length}chars` : '')
       push({ type: 'event', event })
       if (event.type === 'finish') {
         ws.close()
@@ -163,6 +164,7 @@ export async function* sendChat(
   })
 
   ws.on('close', () => {
+    console.log('[WS] closed')
     push({ type: 'done' })
   })
 
