@@ -35,6 +35,11 @@ jobs:
         with:
           deno-version: v2.x
 
+      - name: Clean build artifacts
+        run: |
+          rm -rf .next/cache
+          find .next -name "*.map" -delete
+
       - name: Deploy to Deno Deploy
         env:
           DENO_DEPLOY_TOKEN: ${{ secrets.DENO_DEPLOY_TOKEN }}
