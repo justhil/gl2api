@@ -158,7 +158,7 @@ export async function POST(req: NextRequest) {
             const ev = handler.handleEvent(event)
             if (ev.type === 'reasoning_delta' && ev.delta) {
               write(buildOpenAIChunk(streamId, model, { reasoningContent: ev.delta, created }))
-            } else if (ev.type === 'text_delta' && ev.delta) {
+            } else if ((ev.type === 'text_start' || ev.type === 'text_delta') && ev.delta) {
               fullText += ev.delta
 
               if (hasTools) {

@@ -60,9 +60,11 @@ export class GumloopStreamHandler {
 
       case 'text-delta':
         // Claude模型在reasoning后可能不发送text-start，直接发送text-delta
+        // 返回 text_start 让调用方知道需要开始新的文本块
         if (!this.inText) {
           this.inText = true
           this.blockIndex++
+          return { type: 'text_start', index: this.blockIndex, delta: event.delta }
         }
         if (event.delta) {
           this.textBuffer.push(event.delta)

@@ -195,6 +195,19 @@ async function processChat(
                 write(buildContentBlockStart(blockIdx, 'text'))
                 inText = true
               }
+              // 如果 text_start 带有 delta，需要立即处理
+              if (ev.delta) {
+                fullText += ev.delta
+                if (hasTools) {
+                  textBuffer += ev.delta
+                } else {
+                  if (!inText) {
+                    write(buildContentBlockStart(blockIdx, 'text'))
+                    inText = true
+                  }
+                  write(buildContentBlockDelta(blockIdx, ev.delta))
+                }
+              }
             } else if (ev.type === 'text_delta' && ev.delta) {
               fullText += ev.delta
 
