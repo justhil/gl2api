@@ -281,7 +281,7 @@ async function processChat(
                 inText = false
               }
             } else if (ev.type === 'finish') {
-              // 所有模型都发送 finish 事件，循环会在 yield 后自然结束
+              break
             }
           }
 
