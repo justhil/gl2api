@@ -1,5 +1,6 @@
 import { kv } from '../kv'
 import { memCache } from '../cache/memory'
+import { mapModel } from '../utils/model-map'
 import type { Account } from '../gumloop/types'
 
 const ACCOUNTS_KEY = 'accounts'
@@ -124,10 +125,24 @@ export function invalidateEnabledAccountCache(): void {
 }
 
 // 根据模型获取对应的 gummieId
+// 支持原始模型名和映射后的模型名查找
 export function getGummieIdForModel(account: Account, model: string): string | null {
-  if (account.gummies && account.gummies[model]) {
+  if (!account.gummies) {
+    return account.gummieId || null
+  }
+
+  // 直接查找（原始模型名）
+  if (account.gummies[model]) {
     return account.gummies[model]
   }
+
+  // 遍历查找（映射后的模型名匹配）
+  for (const [key, gummieId] of Object.entries(account.gummies)) {
+    if (mapModel(key) === model) {
+      return gummieId
+    }
+  }
+
   return account.gummieId || null
 }
 
