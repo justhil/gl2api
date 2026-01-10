@@ -64,6 +64,9 @@ export class GumloopStreamHandler {
         if (!this.inText) {
           this.inText = true
           this.blockIndex++
+          if (event.delta) {
+            this.textBuffer.push(event.delta)
+          }
           return { type: 'text_start', index: this.blockIndex, delta: event.delta }
         }
         if (event.delta) {

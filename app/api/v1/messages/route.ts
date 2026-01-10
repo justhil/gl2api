@@ -171,8 +171,10 @@ async function processChat(
             const ev = handler.handleEvent(event)
 
             if (ev.type === 'reasoning_start' && thinkingEnabled) {
-              write(buildContentBlockStart(blockIdx, 'thinking'))
-              inThinking = true
+              if (!inThinking) {
+                write(buildContentBlockStart(blockIdx, 'thinking'))
+                inThinking = true
+              }
             } else if (ev.type === 'reasoning_delta' && ev.delta && thinkingEnabled) {
               if (!inThinking) {
                 write(buildContentBlockStart(blockIdx, 'thinking'))
@@ -186,7 +188,13 @@ async function processChat(
                 inThinking = false
               }
             } else if (ev.type === 'text_start') {
-              if (!hasTools) {
+              // 如果 thinking 块还没关闭，先关闭它
+              if (inThinking && thinkingEnabled) {
+                write(buildContentBlockStop(blockIdx))
+                blockIdx++
+                inThinking = false
+              }
+              if (!hasTools && !inText) {
                 write(buildContentBlockStart(blockIdx, 'text'))
                 inText = true
               }
@@ -204,6 +212,12 @@ async function processChat(
                 }
               }
             } else if (ev.type === 'text_delta' && ev.delta) {
+              // 如果 thinking 块还没关闭，先关闭它
+              if (inThinking && thinkingEnabled) {
+                write(buildContentBlockStop(blockIdx))
+                blockIdx++
+                inThinking = false
+              }
               fullText += ev.delta
 
               if (hasTools) {
