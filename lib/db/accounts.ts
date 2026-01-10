@@ -125,12 +125,38 @@ export function invalidateEnabledAccountCache(): void {
 
 // 根据模型获取对应的 gummieId
 export function getGummieIdForModel(account: Account, model: string): string | null {
-  // 优先从 gummies 映射中查找
   if (account.gummies && account.gummies[model]) {
     return account.gummies[model]
   }
-  // 回退到默认 gummieId
   return account.gummieId || null
+}
+
+// 轮询计数器（按模型）
+const roundRobinIndex = new Map<string, number>()
+
+// 根据模型选择账号（负载均衡）
+export async function getAccountForModel(model: string): Promise<{ account: Account; gummieId: string } | null> {
+  const accounts = await getAccounts({ enabled: true })
+  if (!accounts.length) return null
+
+  // 筛选支持该模型的账号
+  const candidates: Array<{ account: Account; gummieId: string }> = []
+  for (const account of accounts) {
+    const gummieId = getGummieIdForModel(account, model)
+    if (gummieId) {
+      candidates.push({ account, gummieId })
+    }
+  }
+
+  if (!candidates.length) return null
+  if (candidates.length === 1) return candidates[0]
+
+  // 轮询选择
+  const idx = roundRobinIndex.get(model) || 0
+  const selected = candidates[idx % candidates.length]
+  roundRobinIndex.set(model, idx + 1)
+
+  return selected
 }
 
 // ============ Global Settings ============

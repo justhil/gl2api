@@ -30,6 +30,15 @@ interface ModelStats {
   outputTokens: number
 }
 
+interface ModelMapping {
+  model: string
+  accounts: Array<{
+    accountId: string
+    accountLabel: string
+    gummieId: string
+  }>
+}
+
 interface Stats {
   day: ModelStats[]
   week: ModelStats[]
@@ -66,6 +75,8 @@ export default function AdminPage() {
   const [creditsLoading, setCreditsLoading] = useState(false)
   const [stats, setStats] = useState<Stats>({ day: [], week: [], month: [] })
   const [statsPeriod, setStatsPeriod] = useState<'day' | 'week' | 'month'>('day')
+  const [modelMappings, setModelMappings] = useState<ModelMapping[]>([])
+  const [mappingsLoading, setMappingsLoading] = useState(false)
 
   useEffect(() => {
     const saved = localStorage.getItem('admin_token')
@@ -80,6 +91,7 @@ export default function AdminPage() {
       loadAccounts()
       loadGlobalSettings()
       loadStats()
+      loadModelMappings()
     }
   }, [token])
 
@@ -103,6 +115,16 @@ export default function AdminPage() {
       const data = await resp.json()
       setStats(data)
     } catch {}
+  }
+
+  async function loadModelMappings() {
+    setMappingsLoading(true)
+    try {
+      const resp = await fetch('/api/v2/model-mapping', { headers: { Authorization: `Bearer ${token}` } })
+      const data = await resp.json()
+      setModelMappings(data.mappings || [])
+    } catch {}
+    setMappingsLoading(false)
   }
 
   async function loadAllCredits() {
@@ -169,6 +191,7 @@ export default function AdminPage() {
       if (resp.ok) {
         setSuccess(`重新初始化完成：${data.successCount}/${data.accounts} 个账号成功，删除 ${data.totalDeleted} 个旧 Agent，创建 ${data.totalCreated} 个新 Agent`)
         loadAccounts()
+        loadModelMappings()
         if (selectedAccount) loadGummies(selectedAccount.id)
         setTimeout(() => setSuccess(''), 8000)
       } else {
@@ -231,6 +254,7 @@ export default function AdminPage() {
         setShowAddForm(false)
         setFormData({ refreshToken: '', label: '' })
         loadAccounts()
+        loadModelMappings()
         setSuccess(`账号添加成功，删除 ${data.gummiesDeleted || 0} 个旧 Agent，创建 ${data.gummiesCreated || 0} 个新 Agent`)
         setTimeout(() => setSuccess(''), 5000)
       } else {
@@ -302,6 +326,7 @@ export default function AdminPage() {
         setTimeout(() => setSuccess(''), 3000)
         loadGummies(accountId)
         loadAccounts()
+        loadModelMappings()
       } else {
         setError(data.error || '删除失败')
       }
@@ -324,6 +349,7 @@ export default function AdminPage() {
         setSuccess('Agent 已删除')
         setTimeout(() => setSuccess(''), 2000)
         loadGummies(selectedAccount.id)
+        loadModelMappings()
       } else {
         const data = await resp.json()
         setError(data.error || '删除失败')
@@ -489,6 +515,62 @@ export default function AdminPage() {
             rows={2}
             className="w-full px-2 py-1.5 bg-zinc-800/50 border border-zinc-700/50 rounded text-xs font-mono placeholder-zinc-600 focus:outline-none focus:border-zinc-600 resize-none"
           />
+        </div>
+
+        {/* Model-Gummie Mapping Table */}
+        <div className="bg-zinc-900/50 border border-zinc-800/50 rounded p-3">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs text-zinc-500">
+              模型映射表 ({modelMappings.filter(m => m.accounts.length > 0).length}/{modelMappings.length} 可用)
+            </span>
+            <button
+              onClick={loadModelMappings}
+              disabled={mappingsLoading}
+              className="px-2 py-0.5 bg-zinc-800 hover:bg-zinc-700 rounded text-xs disabled:opacity-50"
+            >
+              {mappingsLoading ? '刷新中...' : '刷新'}
+            </button>
+          </div>
+          <div className="max-h-64 overflow-y-auto">
+            <table className="w-full text-xs">
+              <thead className="sticky top-0 bg-zinc-900">
+                <tr className="text-zinc-500 text-left">
+                  <th className="py-1 px-2">模型</th>
+                  <th className="py-1 px-2">账号数</th>
+                  <th className="py-1 px-2">Gummie IDs</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-800/30">
+                {modelMappings.map((m) => (
+                  <tr key={m.model} className={m.accounts.length === 0 ? 'text-zinc-600' : ''}>
+                    <td className="py-1 px-2 font-mono truncate max-w-[200px]" title={m.model}>{m.model}</td>
+                    <td className="py-1 px-2">
+                      <span className={m.accounts.length > 0 ? 'text-green-400' : 'text-red-400'}>
+                        {m.accounts.length}
+                      </span>
+                    </td>
+                    <td className="py-1 px-2">
+                      {m.accounts.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {m.accounts.map((a) => (
+                            <span
+                              key={a.gummieId}
+                              className="px-1 py-0.5 bg-zinc-800/50 rounded text-zinc-400"
+                              title={`${a.accountLabel}: ${a.gummieId}`}
+                            >
+                              {a.accountLabel}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-zinc-600">-</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         {/* Main Content */}
