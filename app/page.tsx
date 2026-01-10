@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react'
 interface Account {
   id: string
   label?: string
+  email?: string
   refreshToken?: string
   userId?: string
   gummieId?: string
@@ -138,13 +139,13 @@ export default function AdminPage() {
         const data = await resp.json()
         results.push({
           accountId: account.id,
-          label: account.label || account.id,
+          label: account.label || account.email || account.id,
           credits: data.credits ?? null,
         })
       } catch {
         results.push({
           accountId: account.id,
-          label: account.label || account.id,
+          label: account.label || account.email || account.id,
           credits: null,
         })
       }
@@ -622,7 +623,7 @@ export default function AdminPage() {
                   className={`p-4 cursor-pointer hover:bg-surface-secondary transition-colors ${selectedAccount?.id === account.id ? 'bg-primary-lighter/50' : ''}`}
                 >
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-content truncate">{account.label || account.id}</span>
+                    <span className="text-sm font-medium text-content truncate">{account.label || account.email || account.id}</span>
                     <span className={`px-2 py-0.5 rounded-full text-xs ${account.enabled ? 'bg-success/10 text-success' : 'bg-gray-100 text-content-tertiary'}`}>
                       {account.enabled ? '启用' : '禁用'}
                     </span>
@@ -656,7 +657,7 @@ export default function AdminPage() {
               <div className="bg-surface rounded-lg shadow-card overflow-hidden">
                 <div className="p-4 border-b border-gray-100 flex items-center justify-between">
                   <span className="text-sm font-medium text-content">
-                    {selectedAccount.label || selectedAccount.id} - Agent 列表 ({gummies.length})
+                    {selectedAccount.label || selectedAccount.email || selectedAccount.id} - Agent 列表 ({gummies.length})
                   </span>
                   {gummies.length > 0 && (
                     <button

@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { verifyAdmin } from '@/lib/utils/admin'
 import { getAccounts, createAccount, getGlobalSettings } from '@/lib/db/accounts'
 import { firebaseRefresh } from '@/lib/gumloop/auth'
-import { createGummie, listGummies, deleteGummie } from '@/lib/gumloop/api'
+import { createGummie, listGummies, deleteGummie, getUserProfile } from '@/lib/gumloop/api'
 import { AVAILABLE_MODELS, mapModel } from '@/lib/utils/model-map'
 import type { ModelGummieMap } from '@/lib/gumloop/types'
 
@@ -50,10 +50,14 @@ export async function POST(req: NextRequest) {
   // Validate refreshToken and get user info
   let idToken: string
   let userId: string
+  let email: string | undefined
   try {
     const tokenData = await firebaseRefresh(refreshToken)
     idToken = tokenData.idToken
     userId = tokenData.userId
+    // Get user email
+    const profile = await getUserProfile(idToken, userId)
+    email = profile?.user_email
   } catch (err) {
     return NextResponse.json({ error: `Invalid refreshToken: ${err}` }, { status: 400 })
   }
@@ -97,6 +101,7 @@ export async function POST(req: NextRequest) {
 
   const account = await createAccount({
     label,
+    email,
     refreshToken,
     userId,
     gummieId: defaultGummieId,

@@ -56,6 +56,7 @@ export type ModelGummieMap = Record<string, string>
 export interface Account {
   id: string
   label?: string
+  email?: string
   refreshToken?: string
   userId?: string
   gummieId?: string  // 默认 gummie（兼容旧逻辑）
