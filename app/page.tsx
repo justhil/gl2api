@@ -373,20 +373,21 @@ export default function AdminPage() {
 
   if (showLogin) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-zinc-950 p-4">
-        <div className="w-full max-w-xs">
-          <h1 className="text-xl font-bold mb-6 text-center text-white">Gumloop 2API</h1>
-          <form onSubmit={handleLogin} className="space-y-3">
+      <div className="min-h-screen flex items-center justify-center bg-surface-secondary p-4">
+        <div className="w-full max-w-sm bg-surface rounded-lg shadow-card p-8">
+          <h1 className="text-2xl font-semibold mb-2 text-center text-content">Gumloop 2API</h1>
+          <p className="text-sm text-content-secondary text-center mb-6">管理控制台</p>
+          <form onSubmit={handleLogin} className="space-y-4">
             <input
               type="password"
-              placeholder="管理密码"
+              placeholder="输入管理密码"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded text-white text-sm placeholder-zinc-500 focus:outline-none focus:border-zinc-600"
+              className="w-full px-4 py-3 bg-surface border border-gray-200 rounded-lg text-content text-sm placeholder-content-tertiary focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
             />
-            {error && <p className="text-red-400 text-xs">{error}</p>}
-            <button type="submit" disabled={loading} className="w-full py-2 bg-zinc-800 hover:bg-zinc-700 rounded text-sm text-white disabled:opacity-50">
-              {loading ? '...' : '登录'}
+            {error && <p className="text-error text-sm">{error}</p>}
+            <button type="submit" disabled={loading} className="w-full py-3 bg-primary hover:bg-primary-light text-white rounded-lg text-sm font-medium disabled:opacity-50 transition-colors">
+              {loading ? '登录中...' : '登录'}
             </button>
           </form>
         </div>
@@ -395,76 +396,76 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-300">
-      <div className="border-b border-zinc-900 px-4 py-2">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <span className="text-sm font-medium text-white">Gumloop 2API</span>
-          <button onClick={handleLogout} className="text-xs text-zinc-500 hover:text-zinc-300">退出</button>
+    <div className="min-h-screen bg-surface-secondary text-content">
+      <header className="bg-surface border-b border-gray-100 sticky top-0 z-10">
+        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+          <h1 className="text-lg font-semibold text-content">Gumloop 2API</h1>
+          <button onClick={handleLogout} className="text-sm text-content-secondary hover:text-content transition-colors">退出登录</button>
         </div>
-      </div>
+      </header>
 
-      <div className="max-w-6xl mx-auto p-4 space-y-4">
+      <main className="max-w-6xl mx-auto p-4 space-y-4">
         {error && (
-          <div className="p-2 bg-red-950/50 border border-red-900/50 rounded text-red-400 text-xs flex justify-between">
+          <div className="p-3 bg-red-50 border border-red-100 rounded-lg text-error text-sm flex justify-between items-center">
             {error}
-            <button onClick={() => setError('')} className="text-red-500 hover:text-red-400">×</button>
+            <button onClick={() => setError('')} className="text-red-400 hover:text-error ml-2">×</button>
           </div>
         )}
         {success && (
-          <div className="p-2 bg-green-950/50 border border-green-900/50 rounded text-green-400 text-xs">
+          <div className="p-3 bg-green-50 border border-green-100 rounded-lg text-success text-sm">
             {success}
           </div>
         )}
 
         {/* Stats Overview */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="bg-zinc-900/50 border border-zinc-800/50 rounded p-3">
-            <div className="text-xs text-zinc-500 mb-1">总额度</div>
-            <div className="text-lg font-medium text-green-400">{totalCredits.toLocaleString()}</div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="bg-surface rounded-lg shadow-card p-4">
+            <div className="text-sm text-content-secondary mb-1">总额度</div>
+            <div className="text-2xl font-semibold text-success">{totalCredits.toLocaleString()}</div>
           </div>
-          <div className="bg-zinc-900/50 border border-zinc-800/50 rounded p-3">
-            <div className="text-xs text-zinc-500 mb-1">账号数</div>
-            <div className="text-lg font-medium">{accounts.length}</div>
+          <div className="bg-surface rounded-lg shadow-card p-4">
+            <div className="text-sm text-content-secondary mb-1">账号数</div>
+            <div className="text-2xl font-semibold text-content">{accounts.length}</div>
           </div>
-          <div className="bg-zinc-900/50 border border-zinc-800/50 rounded p-3">
-            <div className="text-xs text-zinc-500 mb-1">启用账号</div>
-            <div className="text-lg font-medium">{accounts.filter(a => a.enabled).length}</div>
+          <div className="bg-surface rounded-lg shadow-card p-4">
+            <div className="text-sm text-content-secondary mb-1">启用账号</div>
+            <div className="text-2xl font-semibold text-content">{accounts.filter(a => a.enabled).length}</div>
           </div>
-          <div className="bg-zinc-900/50 border border-zinc-800/50 rounded p-3">
-            <div className="text-xs text-zinc-500 mb-1">
+          <div className="bg-surface rounded-lg shadow-card p-4">
+            <div className="text-sm text-content-secondary mb-1 flex items-center gap-2">
               请求量
               <select
                 value={statsPeriod}
                 onChange={(e) => setStatsPeriod(e.target.value as 'day' | 'week' | 'month')}
-                className="ml-1 bg-transparent text-zinc-500 text-xs border-none outline-none cursor-pointer"
+                className="bg-transparent text-content-secondary text-sm border-none outline-none cursor-pointer"
               >
                 <option value="day">今日</option>
                 <option value="week">本周</option>
                 <option value="month">本月</option>
               </select>
             </div>
-            <div className="text-lg font-medium">{totalRequests.toLocaleString()}</div>
+            <div className="text-2xl font-semibold text-content">{totalRequests.toLocaleString()}</div>
           </div>
         </div>
 
         {/* Credits per Account */}
         {allCredits.length > 0 && (
-          <div className="bg-zinc-900/50 border border-zinc-800/50 rounded p-3">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-zinc-500">各账号额度</span>
+          <div className="bg-surface rounded-lg shadow-card p-4">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm font-medium text-content">各账号额度</span>
               <button
                 onClick={loadAllCredits}
                 disabled={creditsLoading}
-                className="px-2 py-0.5 bg-zinc-800 hover:bg-zinc-700 rounded text-xs disabled:opacity-50"
+                className="px-3 py-1.5 bg-surface-secondary hover:bg-gray-100 rounded-lg text-sm text-content-secondary disabled:opacity-50 transition-colors"
               >
                 {creditsLoading ? '刷新中...' : '刷新'}
               </button>
             </div>
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-4">
               {allCredits.map((c) => (
-                <div key={c.accountId} className="text-xs">
-                  <span className="text-zinc-400">{c.label}:</span>
-                  <span className="ml-1 text-green-400">{c.credits?.toLocaleString() ?? '-'}</span>
+                <div key={c.accountId} className="text-sm">
+                  <span className="text-content-secondary">{c.label}:</span>
+                  <span className="ml-1 text-success font-medium">{c.credits?.toLocaleString() ?? '-'}</span>
                 </div>
               ))}
             </div>
@@ -473,14 +474,16 @@ export default function AdminPage() {
 
         {/* Model Stats */}
         {currentStats.length > 0 && (
-          <div className="bg-zinc-900/50 border border-zinc-800/50 rounded p-3">
-            <div className="text-xs text-zinc-500 mb-2">模型请求统计 ({statsPeriod === 'day' ? '今日' : statsPeriod === 'week' ? '本周' : '本月'})</div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          <div className="bg-surface rounded-lg shadow-card p-4">
+            <div className="text-sm font-medium text-content mb-3">
+              模型请求统计 ({statsPeriod === 'day' ? '今日' : statsPeriod === 'week' ? '本周' : '本月'})
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {currentStats.sort((a, b) => b.count - a.count).map((s) => (
-                <div key={s.model} className="text-xs p-2 bg-zinc-800/30 rounded">
-                  <div className="text-zinc-400 truncate" title={s.model}>{s.model}</div>
-                  <div className="text-zinc-200">{s.count} 次</div>
-                  <div className="text-zinc-500">{((s.inputTokens + s.outputTokens) / 1000).toFixed(1)}k tokens</div>
+                <div key={s.model} className="p-3 bg-surface-secondary rounded-lg">
+                  <div className="text-sm text-content truncate" title={s.model}>{s.model}</div>
+                  <div className="text-lg font-semibold text-content">{s.count} 次</div>
+                  <div className="text-sm text-content-tertiary">{((s.inputTokens + s.outputTokens) / 1000).toFixed(1)}k tokens</div>
                 </div>
               ))}
             </div>
@@ -488,23 +491,23 @@ export default function AdminPage() {
         )}
 
         {/* System Prompt */}
-        <div className="bg-zinc-900/50 border border-zinc-800/50 rounded p-3">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs text-zinc-500">全局 System Prompt</span>
+        <div className="bg-surface rounded-lg shadow-card p-4">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm font-medium text-content">全局 System Prompt</span>
             <div className="flex gap-2">
               <button
                 onClick={reinitAllGummies}
                 disabled={reinitLoading}
-                className="px-2 py-1 bg-orange-900/50 hover:bg-orange-900/70 border border-orange-800/50 rounded text-xs disabled:opacity-50"
+                className="px-3 py-1.5 bg-warning/10 hover:bg-warning/20 text-warning rounded-lg text-sm disabled:opacity-50 transition-colors"
               >
                 {reinitLoading ? '初始化中...' : '重新初始化全部 Agent'}
               </button>
               <button
                 onClick={saveGlobalSettings}
                 disabled={settingsLoading}
-                className="px-2 py-1 bg-zinc-800 hover:bg-zinc-700 rounded text-xs disabled:opacity-50"
+                className="px-3 py-1.5 bg-primary hover:bg-primary-light text-white rounded-lg text-sm disabled:opacity-50 transition-colors"
               >
-                {settingsLoading ? '...' : '保存'}
+                {settingsLoading ? '保存中...' : '保存'}
               </button>
             </div>
           </div>
@@ -512,50 +515,50 @@ export default function AdminPage() {
             value={globalSystemPrompt}
             onChange={(e) => setGlobalSystemPrompt(e.target.value)}
             placeholder="设置后将应用到所有启用账号的 Agent..."
-            rows={2}
-            className="w-full px-2 py-1.5 bg-zinc-800/50 border border-zinc-700/50 rounded text-xs font-mono placeholder-zinc-600 focus:outline-none focus:border-zinc-600 resize-none"
+            rows={3}
+            className="w-full px-3 py-2 bg-surface-secondary border border-gray-200 rounded-lg text-sm font-mono placeholder-content-tertiary focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none transition-all"
           />
         </div>
 
         {/* Model-Gummie Mapping Table */}
-        <div className="bg-zinc-900/50 border border-zinc-800/50 rounded p-3">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs text-zinc-500">
-              模型映射表 ({modelMappings.filter(m => m.accounts.length > 0).length}/{modelMappings.length} 可用)
+        <div className="bg-surface rounded-lg shadow-card p-4">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm font-medium text-content">
+              模型映射表 <span className="text-content-tertiary font-normal">({modelMappings.filter(m => m.accounts.length > 0).length}/{modelMappings.length} 可用)</span>
             </span>
             <button
               onClick={loadModelMappings}
               disabled={mappingsLoading}
-              className="px-2 py-0.5 bg-zinc-800 hover:bg-zinc-700 rounded text-xs disabled:opacity-50"
+              className="px-3 py-1.5 bg-surface-secondary hover:bg-gray-100 rounded-lg text-sm text-content-secondary disabled:opacity-50 transition-colors"
             >
               {mappingsLoading ? '刷新中...' : '刷新'}
             </button>
           </div>
-          <div className="max-h-64 overflow-y-auto">
-            <table className="w-full text-xs">
-              <thead className="sticky top-0 bg-zinc-900">
-                <tr className="text-zinc-500 text-left">
-                  <th className="py-1 px-2">模型</th>
-                  <th className="py-1 px-2">账号数</th>
-                  <th className="py-1 px-2">Gummie IDs</th>
+          <div className="max-h-64 overflow-y-auto rounded-lg border border-gray-100">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-surface-secondary">
+                <tr className="text-content-secondary text-left">
+                  <th className="py-2 px-3 font-medium">模型</th>
+                  <th className="py-2 px-3 font-medium">账号数</th>
+                  <th className="py-2 px-3 font-medium">Gummie IDs</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-800/30">
+              <tbody className="divide-y divide-gray-100">
                 {modelMappings.map((m) => (
-                  <tr key={m.model} className={m.accounts.length === 0 ? 'text-zinc-600' : ''}>
-                    <td className="py-1 px-2 font-mono truncate max-w-[200px]" title={m.model}>{m.model}</td>
-                    <td className="py-1 px-2">
-                      <span className={m.accounts.length > 0 ? 'text-green-400' : 'text-red-400'}>
+                  <tr key={m.model} className={m.accounts.length === 0 ? 'text-content-tertiary' : ''}>
+                    <td className="py-2 px-3 font-mono truncate max-w-[200px]" title={m.model}>{m.model}</td>
+                    <td className="py-2 px-3">
+                      <span className={m.accounts.length > 0 ? 'text-success font-medium' : 'text-error'}>
                         {m.accounts.length}
                       </span>
                     </td>
-                    <td className="py-1 px-2">
+                    <td className="py-2 px-3">
                       {m.accounts.length > 0 ? (
                         <div className="flex flex-wrap gap-1">
                           {m.accounts.map((a) => (
                             <span
                               key={a.gummieId}
-                              className="px-1 py-0.5 bg-zinc-800/50 rounded text-zinc-400"
+                              className="px-2 py-0.5 bg-primary-lighter text-primary rounded text-xs"
                               title={`${a.accountLabel}: ${a.gummieId}`}
                             >
                               {a.accountLabel}
@@ -563,7 +566,7 @@ export default function AdminPage() {
                           ))}
                         </div>
                       ) : (
-                        <span className="text-zinc-600">-</span>
+                        <span className="text-content-tertiary">-</span>
                       )}
                     </td>
                   </tr>
@@ -576,121 +579,121 @@ export default function AdminPage() {
         {/* Main Content */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Accounts List */}
-          <div className="bg-zinc-900/50 border border-zinc-800/50 rounded">
-            <div className="flex items-center justify-between p-2 border-b border-zinc-800/50">
-              <span className="text-xs text-zinc-400">账号 ({accounts.length})</span>
+          <div className="bg-surface rounded-lg shadow-card overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b border-gray-100">
+              <span className="text-sm font-medium text-content">账号 ({accounts.length})</span>
               <button
                 onClick={() => setShowAddForm(!showAddForm)}
-                className="px-2 py-0.5 bg-zinc-800 hover:bg-zinc-700 rounded text-xs"
+                className="px-3 py-1.5 bg-primary hover:bg-primary-light text-white rounded-lg text-sm transition-colors"
               >
                 {showAddForm ? '取消' : '添加'}
               </button>
             </div>
 
             {showAddForm && (
-              <form onSubmit={handleAddAccount} className="p-2 border-b border-zinc-800/50 space-y-2">
+              <form onSubmit={handleAddAccount} className="p-4 border-b border-gray-100 space-y-3 bg-surface-secondary">
                 <input
                   type="text"
                   placeholder="标签（可选）"
                   value={formData.label}
                   onChange={(e) => setFormData({ ...formData, label: e.target.value })}
-                  className="w-full px-2 py-1.5 bg-zinc-800/50 border border-zinc-700/50 rounded text-xs focus:outline-none focus:border-zinc-600"
+                  className="w-full px-3 py-2 bg-surface border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                 />
                 <textarea
                   placeholder="Refresh Token *"
                   value={formData.refreshToken}
                   onChange={(e) => setFormData({ ...formData, refreshToken: e.target.value })}
                   rows={2}
-                  className="w-full px-2 py-1.5 bg-zinc-800/50 border border-zinc-700/50 rounded text-xs font-mono focus:outline-none focus:border-zinc-600 resize-none"
+                  className="w-full px-3 py-2 bg-surface border border-gray-200 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none transition-all"
                   required
                 />
-                <p className="text-xs text-zinc-600">添加时会先删除账号内全部 Agent，再创建新的</p>
-                <button type="submit" disabled={loading} className="w-full py-1.5 bg-green-900/50 hover:bg-green-900/70 border border-green-800/50 rounded text-xs disabled:opacity-50">
+                <p className="text-xs text-content-tertiary">添加时会先删除账号内全部 Agent，再创建新的</p>
+                <button type="submit" disabled={loading} className="w-full py-2 bg-success hover:bg-success/90 text-white rounded-lg text-sm font-medium disabled:opacity-50 transition-colors">
                   {loading ? '处理中...' : '添加账号'}
                 </button>
               </form>
             )}
 
-            <div className="divide-y divide-zinc-800/50 max-h-80 overflow-y-auto">
+            <div className="divide-y divide-gray-100 max-h-80 overflow-y-auto">
               {accounts.map((account) => (
                 <div
                   key={account.id}
                   onClick={() => selectAccount(account)}
-                  className={`p-2 cursor-pointer hover:bg-zinc-800/30 ${selectedAccount?.id === account.id ? 'bg-zinc-800/50' : ''}`}
+                  className={`p-4 cursor-pointer hover:bg-surface-secondary transition-colors ${selectedAccount?.id === account.id ? 'bg-primary-lighter/50' : ''}`}
                 >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-medium truncate">{account.label || account.id}</span>
-                    <span className={`px-1 py-0.5 rounded text-xs ${account.enabled ? 'bg-green-900/50 text-green-400' : 'bg-zinc-800 text-zinc-500'}`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-content truncate">{account.label || account.id}</span>
+                    <span className={`px-2 py-0.5 rounded-full text-xs ${account.enabled ? 'bg-success/10 text-success' : 'bg-gray-100 text-content-tertiary'}`}>
                       {account.enabled ? '启用' : '禁用'}
                     </span>
                   </div>
-                  <div className="text-xs text-zinc-600">
+                  <div className="text-sm text-content-secondary mb-2">
                     {account.gummies ? Object.keys(account.gummies).length : 0} 个模型
                   </div>
-                  <div className="flex gap-1 mt-1">
+                  <div className="flex gap-2">
                     <button
                       onClick={(e) => { e.stopPropagation(); toggleAccount(account.id, !account.enabled) }}
-                      className="px-1.5 py-0.5 bg-zinc-800 hover:bg-zinc-700 rounded text-xs"
+                      className="px-2 py-1 bg-surface-secondary hover:bg-gray-100 rounded text-xs text-content-secondary transition-colors"
                     >
                       {account.enabled ? '禁用' : '启用'}
                     </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); deleteAccount(account.id) }}
-                      className="px-1.5 py-0.5 bg-red-900/50 hover:bg-red-900/70 rounded text-xs"
+                      className="px-2 py-1 bg-error/10 hover:bg-error/20 text-error rounded text-xs transition-colors"
                     >
                       删除
                     </button>
                   </div>
                 </div>
               ))}
-              {accounts.length === 0 && <div className="p-3 text-center text-zinc-600 text-xs">暂无账号</div>}
+              {accounts.length === 0 && <div className="p-6 text-center text-content-tertiary text-sm">暂无账号</div>}
             </div>
           </div>
 
           {/* Account Details */}
           <div className="lg:col-span-2">
             {selectedAccount ? (
-              <div className="bg-zinc-900/50 border border-zinc-800/50 rounded">
-                <div className="p-2 border-b border-zinc-800/50 flex items-center justify-between">
-                  <span className="text-xs text-zinc-400">
+              <div className="bg-surface rounded-lg shadow-card overflow-hidden">
+                <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+                  <span className="text-sm font-medium text-content">
                     {selectedAccount.label || selectedAccount.id} - Agent 列表 ({gummies.length})
                   </span>
                   {gummies.length > 0 && (
                     <button
                       onClick={() => deleteAllGummies(selectedAccount.id)}
                       disabled={loading}
-                      className="px-2 py-0.5 bg-red-900/50 hover:bg-red-900/70 rounded text-xs disabled:opacity-50"
+                      className="px-3 py-1.5 bg-error/10 hover:bg-error/20 text-error rounded-lg text-sm disabled:opacity-50 transition-colors"
                     >
                       删除全部
                     </button>
                   )}
                 </div>
-                <div className="divide-y divide-zinc-800/50 max-h-96 overflow-y-auto">
+                <div className="divide-y divide-gray-100 max-h-96 overflow-y-auto">
                   {gummies.map((g) => (
-                    <div key={g.gummie_id} className="p-2 flex items-center justify-between">
+                    <div key={g.gummie_id} className="p-4 flex items-center justify-between">
                       <div className="flex-1 min-w-0">
-                        <div className="text-xs font-medium truncate">{g.name}</div>
-                        <div className="text-xs text-zinc-600">{g.model_name}</div>
+                        <div className="text-sm font-medium text-content truncate">{g.name}</div>
+                        <div className="text-sm text-content-secondary">{g.model_name}</div>
                       </div>
                       <button
                         onClick={() => deleteGummie(g.gummie_id)}
-                        className="px-1.5 py-0.5 bg-red-900/50 hover:bg-red-900/70 rounded text-xs ml-2"
+                        className="px-2 py-1 bg-error/10 hover:bg-error/20 text-error rounded text-xs ml-3 transition-colors"
                       >
                         删除
                       </button>
                     </div>
                   ))}
-                  {gummies.length === 0 && <div className="p-3 text-center text-zinc-600 text-xs">暂无 Agent</div>}
+                  {gummies.length === 0 && <div className="p-6 text-center text-content-tertiary text-sm">暂无 Agent</div>}
                 </div>
               </div>
             ) : (
-              <div className="bg-zinc-900/50 border border-zinc-800/50 rounded p-6 text-center text-zinc-600 text-xs">
+              <div className="bg-surface rounded-lg shadow-card p-8 text-center text-content-tertiary text-sm">
                 选择左侧账号查看详情
               </div>
             )}
           </div>
         </div>
-      </div>
+      </main>
     </div>
   )
 }
