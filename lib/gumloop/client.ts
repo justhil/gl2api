@@ -140,9 +140,24 @@ export async function* sendChat(
   let resolver: ((event: GumloopEvent | null) => void) | null = null
   let error: Error | null = null
   let closed = false
+  let connected = false
+  let connectResolver: (() => void) | null = null
+
+  // 等待连接建立的 Promise
+  const waitForConnect = new Promise<void>((resolve, reject) => {
+    connectResolver = resolve
+    // 连接超时 10 秒
+    setTimeout(() => {
+      if (!connected) {
+        reject(new Error('WebSocket connection timeout'))
+      }
+    }, 10000)
+  })
 
   ws.onopen = () => {
+    connected = true
     ws.send(JSON.stringify(payload))
+    if (connectResolver) connectResolver()
   }
 
   ws.onmessage = (event: MessageEvent) => {
@@ -170,6 +185,7 @@ export async function* sendChat(
   ws.onerror = (err: Event) => {
     error = err instanceof Error ? err : new Error('WebSocket error')
     closed = true
+    if (connectResolver) connectResolver()
     if (resolver) {
       const r = resolver
       resolver = null
@@ -187,6 +203,10 @@ export async function* sendChat(
   }
 
   try {
+    // 等待连接建立
+    await waitForConnect
+    if (error) throw error
+
     while (true) {
       if (error) throw error
 

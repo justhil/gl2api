@@ -6,6 +6,7 @@ import type { Account } from '../gumloop/types'
 const ACCOUNTS_KEY = 'accounts'
 const ACCOUNT_PREFIX = 'account:'
 const ENABLED_ACCOUNT_KEY = 'enabled_account'
+const ENABLED_ACCOUNTS_KEY = 'enabled_accounts'
 const MEM_TTL = 60000 // 1 minute
 
 function generateId(): string {
@@ -22,6 +23,12 @@ export async function getAccounts(options?: {
   sortBy?: string
   sortOrder?: 'asc' | 'desc'
 }): Promise<Account[]> {
+  // 对于启用账号查询，使用内存缓存
+  if (options?.enabled === true && !options.sortBy) {
+    const cached = memCache.get<Account[]>(ENABLED_ACCOUNTS_KEY)
+    if (cached) return cached
+  }
+
   const accountIds = await kv.smembers(ACCOUNTS_KEY) as string[]
   if (!accountIds.length) return []
 
@@ -42,6 +49,11 @@ export async function getAccounts(options?: {
     const cmp = aVal < bVal ? -1 : aVal > bVal ? 1 : 0
     return sortOrder === 'desc' ? -cmp : cmp
   })
+
+  // 缓存启用账号列表
+  if (options?.enabled === true && !options.sortBy) {
+    memCache.set(ENABLED_ACCOUNTS_KEY, accounts, MEM_TTL)
+  }
 
   return accounts
 }
@@ -122,6 +134,7 @@ export async function getEnabledAccount(): Promise<Account | null> {
 
 export function invalidateEnabledAccountCache(): void {
   memCache.delete(ENABLED_ACCOUNT_KEY)
+  memCache.delete(ENABLED_ACCOUNTS_KEY)
 }
 
 // 根据模型获取对应的 gummieId
