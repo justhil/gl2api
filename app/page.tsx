@@ -78,6 +78,7 @@ export default function AdminPage() {
   const [statsPeriod, setStatsPeriod] = useState<'day' | 'week' | 'month'>('day')
   const [modelMappings, setModelMappings] = useState<ModelMapping[]>([])
   const [mappingsLoading, setMappingsLoading] = useState(false)
+  const [refreshingAccounts, setRefreshingAccounts] = useState(false)
 
   useEffect(() => {
     const saved = localStorage.getItem('admin_token')
@@ -202,6 +203,29 @@ export default function AdminPage() {
       setError('网络错误')
     } finally {
       setReinitLoading(false)
+    }
+  }
+
+  async function refreshAccountEmails() {
+    setRefreshingAccounts(true)
+    setError('')
+    try {
+      const resp = await fetch('/api/v2/accounts/refresh', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await resp.json()
+      if (resp.ok) {
+        setSuccess(`已更新 ${data.updated} 个账号的邮箱信息`)
+        loadAccounts()
+        setTimeout(() => setSuccess(''), 3000)
+      } else {
+        setError(data.error || '刷新失败')
+      }
+    } catch {
+      setError('网络错误')
+    } finally {
+      setRefreshingAccounts(false)
     }
   }
 
@@ -583,12 +607,21 @@ export default function AdminPage() {
           <div className="bg-surface rounded-lg shadow-card overflow-hidden">
             <div className="flex items-center justify-between p-4 border-b border-gray-100">
               <span className="text-sm font-medium text-content">账号 ({accounts.length})</span>
-              <button
-                onClick={() => setShowAddForm(!showAddForm)}
-                className="px-3 py-1.5 bg-primary hover:bg-primary-light text-white rounded-lg text-sm transition-colors"
-              >
-                {showAddForm ? '取消' : '添加'}
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={refreshAccountEmails}
+                  disabled={refreshingAccounts}
+                  className="px-3 py-1.5 bg-surface-secondary hover:bg-gray-100 rounded-lg text-sm text-content-secondary disabled:opacity-50 transition-colors"
+                >
+                  {refreshingAccounts ? '刷新中...' : '刷新'}
+                </button>
+                <button
+                  onClick={() => setShowAddForm(!showAddForm)}
+                  className="px-3 py-1.5 bg-primary hover:bg-primary-light text-white rounded-lg text-sm transition-colors"
+                >
+                  {showAddForm ? '取消' : '添加'}
+                </button>
+              </div>
             </div>
 
             {showAddForm && (
